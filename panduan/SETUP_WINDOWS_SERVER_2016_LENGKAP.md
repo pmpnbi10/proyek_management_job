@@ -73,7 +73,7 @@ pip 24.x.x
 2. Ikuti wizard:
    - **Installation Directory**: Terima default
    - **Port**: `5432` (default)
-   - **Password untuk user 'postgres'**: Ingat password ini! Contoh: `Postgres123!`
+   - **Password untuk user 'postgres'**: Ingat password ini! (Contoh yang digunakan: `Tabie418728!`)
    - **Locale**: Indonesia atau English
 3. Tunggu hingga selesai
 
@@ -131,6 +131,7 @@ GRANT ALL PRIVILEGES ON DATABASE manajemen_pekerjaan_db TO manajemen_app_user;
 - Password: `AppsPassword123!`
 - Host: `localhost`
 - Port: `5432`
+- PostgreSQL root password: `Tabie418728!`
 
 ---
 

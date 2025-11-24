@@ -11,7 +11,7 @@ REM KONFIGURASI - UBAH SESUAI KEBUTUHAN ANDA
 REM ============================================================================
 
 set POSTGRES_USER=postgres
-set POSTGRES_PASSWORD=Postgres123!
+set POSTGRES_PASSWORD=Tabie418728!
 set DB_NAME=manajemen_pekerjaan_db
 set DB_USER=manajemen_app_user
 set DB_PASSWORD=AppsPassword123!
