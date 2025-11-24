@@ -1,0 +1,150 @@
+{% extends 'base.html' %} 
+{% load core_filters %}
+{% load static %}
+
+{% block title %}Detail Project: {{ project.nama_project }}{% endblock %} 
+
+{% block content %} 
+
+<!-- CSS Kustom (Sama seperti Dashboard) -->
+<style>
+    .table-job-list th {
+        background-color: #343a40;
+        color: #fff;
+        text-align: center;
+        vertical-align: middle;
+        font-size: 0.9rem;
+    }
+    .table-job-list td {
+        vertical-align: middle;
+        font-size: 0.9rem;
+    }
+    .badge-p1 { background-color: #dc3545; color: white; }
+    .badge-p2 { background-color: #fd7e14; color: white; }
+    .badge-p3 { background-color: #ffc107; color: black; }
+    .badge-p4 { background-color: #198754; color: white; }
+    .badge-personil {
+        background-color: #0d6efd;
+        color: white;
+        margin-right: 3px;
+        margin-bottom: 3px;
+        padding: 0.3em 0.5em;
+    }
+    .jadwal-btn-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        justify-content: flex-start;
+    }
+    .jadwal-btn {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.4rem;
+    }
+    .thumbnail-pic {
+        height: 40px;
+        width: 40px;
+        object-fit: cover;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin: 2px;
+    }
+    .file-icon {
+        font-size: 2rem; /* 32px */
+        margin: 2px;
+        color: #6c757d;
+    }
+</style>
+
+<!-- ============================================== -->
+<!-- 1. HEADER (DIKECILKAN) -->
+<!-- ============================================== -->
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+    <div>
+        <h5 class="text-muted mb-1">
+            <a href="{% url 'core:dashboard' %}" class="text-decoration-none">Dashboard</a> / Project
+        </h5>
+        <h4 class="mb-0">{{ project.nama_project }}</h4>
+        <small class="text-muted">Manager: {{ project.manager_project.username|default:"-" }}</small>
+    </div>
+    <div>
+        <!-- TOMBOL "TAMBAH JOB KE PROJECT INI" (PERMINTAAN ANDA) -->
+        <a href="{% url 'core:job_add_to_project' project.id %}" class="btn btn-primary btn-lg shadow-sm">
+            <i class="bi bi-plus-circle-fill"></i> Tambah Job ke Project Ini
+        </a>
+    </div>
+</div>
+
+<!-- Daftar Job untuk Project ini -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header fs-5">
+        <i class="bi bi-list-task"></i>
+        Daftar Pekerjaan ({{ job_data|length }})
+    </div>
+    <div class="card-body p-0">
+        <!-- Kita gunakan template tabel yang sama -->
+        {% with job_data=job_data filter_params=filter_params %}
+            {% include 'job_table.html' %}
+        {% endwith %}
+    </div>
+</div>
+
+
+<!-- Modal Pop-up (Sama persis seperti Dashboard) -->
+<div class="modal fade" id="jobDateModal" tabindex="-1" aria-labelledby="jobDateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="jobDateModalLabel">Update Status Pekerjaan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="jobDateModalForm" method="post" action="">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Anda akan mengupdate status untuk:</p>
+                    <p><strong id="jobDateModalInfo">...</strong></p>
+                    <div class="mb-3">
+                        <label for="id_modal_status" class="form-label">{{ modal_form.status.label }}</label>
+                        {{ modal_form.status }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_modal_catatan" class="form-label">{{ modal_form.catatan.label }}</label>
+                        {{ modal_form.catatan }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 
+
+{% block extra_js %}
+<!-- JavaScript (Sama persis seperti Dashboard) -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var jobDateModal = document.getElementById('jobDateModal');
+    jobDateModal.addEventListener('show.bs.modal', function(event) {
+        var button = event.relatedTarget;
+        var jobDateId = button.getAttribute('data-jobdate-id');
+        var jobDateStatus = button.getAttribute('data-jobdate-status');
+        var jobDateCatatan = button.getAttribute('data-jobdate-catatan');
+        var jobDateInfo = button.getAttribute('data-jobdate-info');
+        
+        var actionUrl = `/job-date/update/${jobDateId}/`;
+        
+        var modalTitleInfo = document.getElementById('jobDateModalInfo');
+        var modalForm = document.getElementById('jobDateModalForm');
+        var modalStatusSelect = document.getElementById('id_status');
+        var modalCatatanTextarea = document.getElementById('id_catatan');
+        
+        modalForm.action = actionUrl;
+        modalTitleInfo.textContent = jobDateInfo;
+        modalStatusSelect.value = jobDateStatus;
+        modalCatatanTextarea.value = jobDateCatatan;
+    });
+});
+</script>
+{% endblock %}

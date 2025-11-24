@@ -1,0 +1,412 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Job Per Hari - Export ke Google Apps Script{% endblock %}
+
+{% block content %}
+<style>
+    .export-section {
+        position: sticky;
+        bottom: 0;
+        background-color: white;
+        padding: 15px;
+        border-top: 2px solid #2196F3;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        margin-top: 20px;
+    }
+    
+    .export-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .loading {
+        display: none;
+        text-align: center;
+        padding: 10px;
+    }
+    
+    .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #2196F3;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .table-responsive {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    
+    thead {
+        position: sticky;
+        top: 0;
+        background-color: #343a40;
+        z-index: 10;
+    }
+    
+    tbody tr:hover {
+        background-color: #f5f5f5;
+    }
+    
+    tbody tr.selected {
+        background-color: #e3f2fd;
+    }
+    
+    .progress-bar-custom {
+        transition: width 0.6s ease;
+    }
+</style>
+
+<!-- ============================================ -->
+<!-- HEADER -->
+<!-- ============================================ -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4>📅 Job Per Hari</h4>
+        <p class="text-muted">Filter & export jobs untuk form Preventif/Evaluasi ISO</p>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- FILTER SECTION -->
+<!-- ============================================ -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label for="date-picker" class="form-label">Tanggal</label>
+                <input type="date" id="date-picker" class="form-control" value="{{ selected_date|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-2">
+                <label for="line-filter" class="form-label">Line</label>
+                <select id="line-filter" class="form-select" onchange="filterTable()">
+                    <option value="">Semua Line</option>
+                    {% for line in all_lines %}
+                    <option value="{{ line }}">{{ line }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="mesin-filter" class="form-label">Mesin</label>
+                <select id="mesin-filter" class="form-select" onchange="filterTable()">
+                    <option value="">Semua Mesin</option>
+                    {% for mesin in all_mesins %}
+                    <option value="{{ mesin }}">{{ mesin }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="submesin-filter" class="form-label">Sub Mesin</label>
+                <select id="submesin-filter" class="form-select" onchange="filterTable()">
+                    <option value="">Semua Sub Mesin</option>
+                    {% for submesin in all_submesins %}
+                    <option value="{{ submesin }}">{{ submesin }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="progress-filter" class="form-label">Progress</label>
+                <select id="progress-filter" class="form-select" onchange="filterTable()">
+                    <option value="">Semua Progress</option>
+                    <option value="0">0%</option>
+                    <option value="1-50">1-50%</option>
+                    <option value="51-99">51-99%</option>
+                    <option value="100">100%</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button class="btn btn-primary w-100" onclick="filterByDate()">
+                    <i class="bi bi-search"></i> Filter
+                </button>
+            </div>
+            <div class="col-md-2 text-end">
+                <span class="badge bg-secondary">{{ total_jobs }} job</span>
+                <span class="badge bg-info" id="selected-count">0 dipilih</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- JOBS TABLE -->
+<!-- ============================================ -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0" id="jobs-table">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 40px;">
+                        <input type="checkbox" id="select-all" class="form-check-input" onchange="toggleSelectAll()">
+                    </th>
+                    <th>Nama Pekerjaan</th>
+                    <th>Tipe</th>
+                    <th>Line</th>
+                    <th>Mesin</th>
+                    <th>Sub Mesin</th>
+                    <th>PIC</th>
+                    <th>Personil</th>
+                    <th>Prioritas</th>
+                    <th>Fokus</th>
+                    <th>Progress</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in all_jobs %}
+                <tr class="job-row" 
+                    data-job-id="{{ job.id }}" 
+                    data-line="{{ job.aset.parent.parent.nama|default:'' }}"
+                    data-mesin="{{ job.aset.parent.nama|default:'' }}"
+                    data-submesin="{{ job.aset.nama|default:'' }}"
+                    data-progress="{{ job.get_progress_percent }}">
+                    <td>
+                        <input type="checkbox" class="form-check-input job-checkbox" data-job-id="{{ job.id }}" onchange="updateSelectedCount()">
+                    </td>
+                    <td><strong>{{ job.nama_pekerjaan }}</strong></td>
+                    <td>
+                        {% if job.tipe_job == 'Daily' %}
+                        <span class="badge bg-info">Daily</span>
+                        {% else %}
+                        <span class="badge bg-success">Project</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ job.aset.parent.parent.nama|default:'-' }}</td>
+                    <td>{{ job.aset.parent.nama|default:'-' }}</td>
+                    <td>{{ job.aset.nama|default:'-' }}</td>
+                    <td>{{ job.pic.username }}</td>
+                    <td>
+                        {% for personil in job.personil_ditugaskan.all %}
+                        <span class="badge bg-primary">{{ personil.nama_lengkap }}</span>
+                        {% empty %}
+                        <span class="text-muted">-</span>
+                        {% endfor %}
+                    </td>
+                    <td>{{ job.get_prioritas_display }}</td>
+                    <td>{{ job.get_fokus_display }}</td>
+                    <td>
+                        {% with progress=job.get_progress_percent %}
+                        {% if progress == 100 %}
+                        <span class="badge bg-success">{{ progress }}% Done</span>
+                        {% elif progress >= 50 %}
+                        <span class="badge bg-info">{{ progress }}% Progress</span>
+                        {% elif progress > 0 %}
+                        <span class="badge bg-warning">{{ progress }}% Progress</span>
+                        {% else %}
+                        <span class="badge bg-secondary">0% New</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="text-center text-muted py-4">
+                        Tidak ada job untuk tanggal {{ selected_date|date:'d M Y' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- EXPORT SECTION (STICKY BOTTOM) -->
+<!-- ============================================ -->
+<div class="export-section">
+    <div class="export-buttons">
+        <button class="btn btn-lg btn-success" onclick="exportJobs('preventif')" id="btn-preventif">
+            <i class="bi bi-file-pdf"></i> Export ke Form Preventif
+        </button>
+        <button class="btn btn-lg btn-warning text-dark" onclick="exportJobs('evaluasi')" id="btn-evaluasi">
+            <i class="bi bi-file-pdf"></i> Export ke Form Evaluasi
+        </button>
+    </div>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p class="mt-2">Mengirim data ke Google Apps Script...</p>
+    </div>
+    <div id="export-message"></div>
+</div>
+
+<script>
+// Ambil selected date dari input
+function filterByDate() {
+    const date = document.getElementById('date-picker').value;
+    window.location.href = `?date=${date}`;
+}
+
+// Filter tabel berdasarkan dropdown filters
+function filterTable() {
+    const lineFilter = document.getElementById('line-filter').value.toLowerCase();
+    const mesinFilter = document.getElementById('mesin-filter').value.toLowerCase();
+    const submesinFilter = document.getElementById('submesin-filter').value.toLowerCase();
+    const progressFilter = document.getElementById('progress-filter').value;
+    
+    document.querySelectorAll('.job-row').forEach(row => {
+        const line = row.dataset.line.toLowerCase();
+        const mesin = row.dataset.mesin.toLowerCase();
+        const submesin = row.dataset.submesin.toLowerCase();
+        const progress = parseInt(row.dataset.progress);
+        
+        const lineMatch = !lineFilter || line.includes(lineFilter);
+        const mesinMatch = !mesinFilter || mesin.includes(mesinFilter);
+        const submesinMatch = !submesinFilter || submesin.includes(submesinFilter);
+        
+        // Progress filter logic
+        let progressMatch = true;
+        if (progressFilter) {
+            if (progressFilter === '0') {
+                progressMatch = progress === 0;
+            } else if (progressFilter === '1-50') {
+                progressMatch = progress > 0 && progress <= 50;
+            } else if (progressFilter === '51-99') {
+                progressMatch = progress > 50 && progress < 100;
+            } else if (progressFilter === '100') {
+                progressMatch = progress === 100;
+            }
+        }
+        
+        row.style.display = (lineMatch && mesinMatch && submesinMatch && progressMatch) ? '' : 'none';
+    });
+    
+    updateSelectedCount();
+}
+
+// Update selected count
+function updateSelectedCount() {
+    const checkedCount = document.querySelectorAll('.job-checkbox:checked').length;
+    document.getElementById('selected-count').textContent = `${checkedCount} dipilih`;
+}
+
+// Select all checkbox
+function toggleSelectAll() {
+    const selectAll = document.getElementById('select-all').checked;
+    document.querySelectorAll('.job-checkbox').forEach(checkbox => {
+        // Hanya checkbox yang tidak di-hide
+        if (checkbox.closest('.job-row').style.display !== 'none') {
+            checkbox.checked = selectAll;
+        }
+    });
+    updateSelectedCount();
+}
+
+// Track selected jobs
+function getSelectedJobIds() {
+    const checkboxes = document.querySelectorAll('.job-checkbox:checked');
+    return Array.from(checkboxes).map(cb => parseInt(cb.dataset.jobId));
+}
+
+// Update row styling saat checkbox berubah
+document.querySelectorAll('.job-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+        const row = this.closest('.job-row');
+        if (this.checked) {
+            row.classList.add('selected');
+        } else {
+            row.classList.remove('selected');
+        }
+        updateSelectedCount();
+    });
+});
+
+// Export jobs ke Google Apps Script dengan auto-download
+function exportJobs(exportType) {
+    const selectedJobIds = getSelectedJobIds();
+    
+    if (selectedJobIds.length === 0) {
+        alert('Silakan pilih minimal 1 job untuk di-export');
+        return;
+    }
+    
+    // Disable buttons & show loading
+    document.getElementById('btn-preventif').disabled = true;
+    document.getElementById('btn-evaluasi').disabled = true;
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('export-message').innerHTML = '';
+    
+    // Send request ke backend
+    const payload = {
+        job_ids: selectedJobIds,
+        export_type: exportType
+    };
+    
+    fetch('{% url "core:export_jobs_to_gas" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Response from backend:', data);
+        
+        document.getElementById('loading').style.display = 'none';
+        
+        if (data.status === 'success') {
+            // Auto-download PDF
+            const link = document.createElement('a');
+            link.href = data.data.pdfDownloadUrl;
+            link.click();
+            
+            // Show success message
+            const messageHtml = `
+                <div class="alert alert-success mt-3">
+                    <i class="bi bi-check-circle"></i> <strong>Export berhasil!</strong>
+                    <br>PDF sedang diunduh...
+                    <br><small>Jika tidak otomatis download, <a href="${data.data.pdfDownloadUrl}" target="_blank">klik di sini</a></small>
+                </div>
+            `;
+            document.getElementById('export-message').innerHTML = messageHtml;
+        } else {
+            // Show error message
+            const messageHtml = `
+                <div class="alert alert-danger mt-3">
+                    <i class="bi bi-exclamation-circle"></i> <strong>Export gagal!</strong>
+                    <br>${data.message || 'Terjadi kesalahan yang tidak diketahui'}
+                </div>
+            `;
+            document.getElementById('export-message').innerHTML = messageHtml;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('loading').style.display = 'none';
+        const messageHtml = `
+            <div class="alert alert-danger mt-3">
+                <i class="bi bi-exclamation-circle"></i> <strong>Koneksi error!</strong>
+                <br>${error.message}
+            </div>
+        `;
+        document.getElementById('export-message').innerHTML = messageHtml;
+    })
+    .finally(() => {
+        // Re-enable buttons
+        document.getElementById('btn-preventif').disabled = false;
+        document.getElementById('btn-evaluasi').disabled = false;
+    });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.job-checkbox').forEach(checkbox => {
+        if (checkbox.checked) {
+            checkbox.closest('.job-row').classList.add('selected');
+        }
+    });
+    updateSelectedCount();
+});
+</script>
+
+{% endblock %}

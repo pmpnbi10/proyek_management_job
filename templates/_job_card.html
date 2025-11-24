@@ -1,0 +1,113 @@
+{% load static %}
+
+<!-- 
+Template ini menerima satu variabel: 'job' 
+Digunakan oleh dashboard.html dan detail_project.html
+-->
+
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        
+        <!-- Baris Judul dan Tombol Aksi -->
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+                <h5 class="card-title mb-0">{{ job.nama_pekerjaan }}</h5>
+                
+                <!-- Tampilkan nama project jika ini Job Project -->
+                {% if job.tipe_job == 'Project' and job.project %}
+                    <a href="{% url 'core:project_detail' job.project.id %}" class="badge text-bg-info text-decoration-none">
+                        <i class="bi bi-diagram-3-fill"></i>
+                        {{ job.project.nama_project }}
+                    </a>
+                {% endif %}
+            </div>
+            
+            <!-- Tombol Aksi (Hanya tampil jika user adalah PIC) -->
+            {% if request.user == job.pic %}
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary" type="button" id="dropdownMenuButton-{{ job.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton-{{ job.id }}">
+                    <li>
+                        <a class="dropdown-item" href="{% url 'core:job_edit' job.id %}">
+                            <i class="bi bi-pencil-fill text-warning"></i> Edit
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'core:job_delete' job.id %}" onclick="return confirm('Anda yakin ingin menghapus job: {{ job.nama_pekerjaan }}?')">
+                            <i class="bi bi-trash-fill text-danger"></i> Hapus
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Detail: PIC, Aset, Status -->
+        <div class="mb-3">
+            <span class="badge text-bg-primary me-1">
+                <i class="bi bi-person-fill"></i> PIC: {{ job.pic.username }}
+            </span>
+            <span class="badge text-bg-secondary me-1">
+                <i class="bi bi-gear-fill"></i> Aset: {{ job.aset|default:"-" }}
+            </span>
+             <span class="badge text-bg-success me-1">
+                <i class="bi bi-check-circle-fill"></i> Status: {{ job.status }}
+            </span>
+        </div>
+
+        <!-- Detail: Personil dan Tanggal -->
+        <div class="row g-3">
+            <!-- Kolom Personil Ditugaskan -->
+            <div class="col-md-6">
+                <h6 class="text-muted small">TIM DITUGASKAN</h6>
+                <ul class="list-group list-group-flush">
+                    {% for personil in job.personil_ditugaskan.all %}
+                        <li class="list-group-item p-1">
+                            <i class="bi bi-person"></i> {{ personil.nama_lengkap }}
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item p-1 text-muted"><em>(Tidak ada personil ditugaskan)</em></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <!-- Kolom Tanggal Pelaksanaan -->
+            <div class="col-md-6">
+                <h6 class="text-muted small">TANGGAL PELAKSANAAN</h6>
+                <ul class="list-group list-group-flush">
+                    {% for tgl in job.tanggal_pelaksanaan.all %}
+                        <li class="list-group-item p-1">
+                            <i class="bi bi-calendar-event"></i> {{ tgl.tanggal|date:"d M Y" }}
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item p-1 text-muted"><em>(Tidak ada tanggal)</em></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+    </div>
+    
+    <!-- Footer Kartu: Lampiran -->
+    <div class="card-footer bg-light p-2">
+        <h6 class="text-muted small px-2">LAMPIRAN</h6>
+        {% if job.attachments.all %}
+            <div class="d-flex flex-wrap">
+                {% for att in job.attachments.all %}
+                    <a href="{{ att.file.url }}" target="_blank" class="text-decoration-none border rounded p-1 m-1 bg-white">
+                        {% if att.tipe_file == 'Image' %}
+                            <img src="{{ att.file.url }}" alt="{{ att.deskripsi }}" height="40" class="me-1">
+                        {% else %}
+                            <i class="bi bi-file-earmark-text-fill"></i>
+                        {% endif %}
+                        <small>{{ att.deskripsi|default:att.file.name|truncatechars:15 }}</small>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <small class="text-muted px-2"><em>(Tidak ada lampiran)</em></small>
+        {% endif %}
+    </div>
+</div>

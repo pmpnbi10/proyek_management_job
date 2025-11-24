@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAPORAN PROJECT JOBS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 9px;
+            line-height: 1.3;
+            color: #333;
+            margin: 5px;
+            padding: 5px;
+            position: relative;
+            background-image: url('https://via.placeholder.com/800x600?text=WATERMARK');
+            background-attachment: fixed;
+            background-position: center;
+            background-repeat: repeat;
+            background-size: 400px 400px;
+            opacity: 1;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('https://via.placeholder.com/800x600?text=WATERMARK');
+            background-attachment: fixed;
+            background-position: center;
+            background-repeat: repeat;
+            background-size: 400px 400px;
+            opacity: 0.08;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        @page {
+            size: A4;
+            margin: 5mm 5mm 5mm 5mm;
+        }
+
+        .page-break {
+            page-break-after: always;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 12px;
+            border-bottom: 3px solid #2C8C4B;
+            padding-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-logo {
+            width: 120px;
+            height: auto;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            min-height: 90px;
+        }
+
+        .header-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .header-content {
+            flex: 1;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #2C8C4B;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 9px;
+            margin: 1px 0;
+        }
+
+        .header-identity {
+            text-align: right;
+            font-size: 8px;
+            color: #333;
+            line-height: 1.4;
+            flex-shrink: 0;
+            min-width: 80px;
+        }
+
+        .header-identity strong {
+            display: block;
+            font-weight: bold;
+            color: #2C8C4B;
+        }
+
+        /* Summary Box */
+        .summary-box {
+            background-color: #e8f7f0;
+            border: 2px solid #2C8C4B;
+            border-radius: 3px;
+            padding: 8px;
+            margin-bottom: 12px;
+        }
+
+        .summary-box p {
+            margin: 2px 0;
+            font-size: 9px;
+            font-weight: bold;
+            color: #2C8C4B;
+        }
+
+        .summary-stats {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .stat-item {
+            flex: 1;
+            min-width: 100px;
+            background-color: white;
+            padding: 5px;
+            border-radius: 2px;
+            text-align: center;
+            border-top: 3px solid #2C8C4B;
+        }
+
+        .stat-number {
+            font-size: 13px;
+            font-weight: bold;
+            color: #2C8C4B;
+        }
+
+        .stat-label {
+            font-size: 8px;
+            color: #666;
+            margin-top: 1px;
+        }
+
+        /* Project Section */
+        .project-section {
+            margin-bottom: 14px;
+            page-break-inside: avoid;
+        }
+
+        .project-header {
+            background-color: #2C8C4B;
+            color: white;
+            padding: 6px;
+            border-radius: 2px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .project-header h3 {
+            font-size: 10px;
+            margin: 0;
+            font-weight: bold;
+        }
+
+        .project-header .badge {
+            background-color: rgba(255, 255, 255, 0.3);
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-size: 8px;
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+            font-size: 8px;
+        }
+
+        thead {
+            background-color: #2C8C4B;
+            color: white;
+        }
+
+        th {
+            padding: 3px 2px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 8px;
+            border: 0.5px solid #2C8C4B;
+        }
+
+        td {
+            padding: 2px 2px;
+            border: 0.5px solid #ddd;
+            font-size: 8px;
+            vertical-align: top;
+            word-wrap: break-word;
+        }
+
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        /* Indented job rows */
+        .job-row td:first-child::before {
+            content: "└─ ";
+            color: #999;
+        }
+
+        /* Badge Styles */
+        .badge {
+            display: inline-block;
+            padding: 1px 4px;
+            border-radius: 2px;
+            color: white;
+            font-weight: bold;
+            font-size: 7px;
+            text-align: center;
+            min-width: 30px;
+        }
+
+        .badge-p1 {
+            background-color: #dc3545;
+        }
+
+        .badge-p2 {
+            background-color: #fd7e14;
+        }
+
+        .badge-p3 {
+            background-color: #ffc107;
+            color: black;
+        }
+
+        .badge-p4 {
+            background-color: #198754;
+        }
+
+        .badge-status {
+            padding: 1px 3px;
+            border-radius: 2px;
+            font-size: 7px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 1px;
+        }
+
+        .badge-done {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .badge-open {
+            background-color: #ffc107;
+            color: black;
+        }
+
+        .badge-pending {
+            background-color: #fd7e14;
+            color: white;
+        }
+
+        .badge-na {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            background-color: #e9ecef;
+            border-radius: 2px;
+            height: 12px;
+            overflow: hidden;
+            min-width: 35px;
+            margin: 1px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background-color: #28a745;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 7px;
+        }
+
+        /* Attachment Images */
+        .attachments-section {
+            margin-top: 8px;
+            padding: 8px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            page-break-inside: avoid;
+        }
+
+        .attachments-section h3 {
+            margin: 0 0 8px 0;
+            font-size: 10px;
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 4px;
+        }
+
+        .images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 6px;
+        }
+
+        .image-item {
+            text-align: center;
+            background-color: white;
+            padding: 3px;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            page-break-inside: avoid;
+        }
+
+        .image-item img {
+            max-width: 100%;
+            max-height: 120px;
+            object-fit: contain;
+            margin-bottom: 3px;
+            border-radius: 2px;
+        }
+
+        .image-caption {
+            font-size: 7px;
+            color: #666;
+            word-wrap: break-word;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 10px;
+            padding-top: 6px;
+            border-top: 0.5px solid #ddd;
+            text-align: right;
+            font-size: 8px;
+            color: #666;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 8px;
+            color: #999;
+            font-style: italic;
+        }
+
+        /* Column Widths */
+        .col-no {
+            width: 18px;
+        }
+
+        .col-nama {
+            width: 70px;
+        }
+
+        .col-pic {
+            width: 45px;
+        }
+
+        .col-aset {
+            width: 90px;
+        }
+
+        .col-fokus {
+            width: 45px;
+        }
+
+        .col-prioritas {
+            width: 35px;
+        }
+
+        .col-jadwal {
+            width: 50px;
+        }
+
+        .col-progress {
+            width: 40px;
+        }
+
+        .col-lampiran {
+            width: 45px;
+        }
+
+        /* Attachment Images in Table */
+        .attachment-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+        }
+
+        .attachment-thumb {
+            width: 28px;
+            height: 28px;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            overflow: hidden;
+            background-color: #f5f5f5;
+        }
+
+        .attachment-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-logo">
+            <img src="/media/logos/company-logo.png" alt="Logo Perusahaan">
+        </div>
+        <div class="header-content">
+            <h1>LAPORAN PROJECT JOBS</h1>
+            <p>Periode: {{ month_name }} {{ year }}</p>
+            <p>{{ report_date }} | Dicetak: {{ print_date }}</p>
+        </div>
+        <div class="header-identity">
+            <strong>{{ user.get_full_name|default:user.username }}</strong>
+            <span>{{ user.jabatan.nama_jabatan|default:"-" }}</span>
+        </div>
+    </div>
+
+    <!-- Summary Box -->
+    <div class="summary-box">
+        <p>Total: {{ summary.total_projects }} Projects | {{ summary.total_jobs }} Jobs | Completed: {{ summary.completed_jobs }} ({{ summary.completion_percent }}%) | In Progress: {{ summary.in_progress_jobs }}</p>
+        <div class="summary-stats">
+            <div class="stat-item">
+                <div class="stat-number">{{ summary.total_projects }}</div>
+                <div class="stat-label">Projects</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">{{ summary.total_jobs }}</div>
+                <div class="stat-label">Total Jobs</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">{{ summary.completion_percent }}%</div>
+                <div class="stat-label">Completion</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">{{ summary.in_progress_jobs }}</div>
+                <div class="stat-label">In Progress</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projects List -->
+    {% for project_item in project_data %}
+    <div class="project-section">
+        <!-- Project Header -->
+        <div class="project-header">
+            <h3>{{ project_item.project.nama_project }} ({{ project_item.jobs|length }} Jobs)</h3>
+            <span class="badge">Progress: {{ project_item.progress }}%</span>
+        </div>
+
+        <!-- Jobs Table -->
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-no">No</th>
+                    <th class="col-nama">Nama Pekerjaan</th>
+                    <th class="col-pic">PIC</th>
+                    <th class="col-aset">Line → Mesin → Sub</th>
+                    <th class="col-fokus">Fokus</th>
+                    <th class="col-prioritas">Prioritas</th>
+                    <th class="col-jadwal">Jadwal</th>
+                    <th class="col-progress">Progress</th>
+                    <th class="col-lampiran">Lampiran</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in project_item.jobs %}
+                <tr class="job-row">
+                    <td class="col-no">{{ forloop.counter }}</td>
+                    <td class="col-nama">{{ job.nama_pekerjaan }}</td>
+                    <td class="col-pic">{{ job.pic.username }}</td>
+                    <td class="col-aset">
+                        {{ job.aset.parent.parent.nama|default:"-" }}<br>
+                        {{ job.aset.parent.nama|default:"-" }}<br>
+                        {{ job.aset.nama|default:"-" }}
+                    </td>
+                    <td class="col-fokus">{{ job.get_fokus_display }}</td>
+                    <td class="col-prioritas">
+                        <span class="badge badge-{{ job.prioritas|lower }}">{{ job.get_prioritas_display }}</span>
+                    </td>
+                    <td class="col-jadwal">
+                        {% with dates=job.tanggal_pelaksanaan.all %}
+                        {% if dates %}
+                            {% for jd in dates|slice:":2" %}
+                                <span class="badge badge-status badge-{{ jd.status|lower }}">{{ jd.tanggal|date:"d/m" }}</span>
+                            {% endfor %}
+                            {% if dates|length > 2 %}
+                                <span style="color: #999; font-size: 7px;">+{{ dates|length|add:"-2" }}</span>
+                            {% endif %}
+                        {% else %}
+                            <span style="color: #999;">-</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="col-progress">
+                        <div class="progress-container">
+                            <div class="progress-bar" style="width: {{ job.get_progress_percent }}%;">
+                                {{ job.get_progress_percent }}%
+                            </div>
+                        </div>
+                    </td>
+                    <td class="col-lampiran">
+                        {% with images=job.attachments.all %}
+                        {% if images %}
+                            <div class="attachment-images">
+                                {% for attachment in images %}
+                                    {% if attachment.file.url %}
+                                        <div class="attachment-thumb" title="{{ attachment.deskripsi|default:'' }}">
+                                            <img src="{{ attachment.absolute_url }}" alt="{{ attachment.deskripsi }}" onerror="this.style.display='none'">
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <span style="color: #999; font-size: 7px;">-</span>
+                        {% endif %}
+                        {% endwith %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="no-data">Tidak ada job dalam project ini.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% empty %}
+    <div class="no-data">Tidak ada project data untuk ditampilkan.</div>
+    {% endfor %}
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>Laporan ini secara otomatis digenerate dari Sistem Manajemen Pekerjaan</p>
+    </div>
+</body>
+</html>

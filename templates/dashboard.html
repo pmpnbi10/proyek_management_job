@@ -1,0 +1,525 @@
+{% extends 'base.html' %}
+{% load core_filters %}
+{% load static %}
+
+{% block title %}Dashboard Pekerjaan{% endblock %}
+
+{% block content %}
+
+<!-- CSS Kustom (Tidak berubah) -->
+<style>
+    .table-job-list th {
+        background-color: #343a40;
+        color: #fff;
+        text-align: center;
+        vertical-align: middle;
+        font-size: 0.9rem;
+    }
+
+    .table-job-list td {
+        vertical-align: middle;
+        font-size: 0.9rem;
+    }
+
+    .badge-p1 {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .badge-p2 {
+        background-color: #fd7e14;
+        color: white;
+    }
+
+    .badge-p3 {
+        background-color: #ffc107;
+        color: black;
+    }
+
+    .badge-p4 {
+        background-color: #198754;
+        color: white;
+    }
+
+    .badge-personil {
+        background-color: #0d6efd;
+        color: white;
+        margin-right: 3px;
+        margin-bottom: 3px;
+        padding: 0.3em 0.5em;
+    }
+
+    .jadwal-btn-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        justify-content: flex-start;
+    }
+
+    .jadwal-btn {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.4rem;
+    }
+
+    .thumbnail-pic {
+        height: 40px;
+        width: 40px;
+        object-fit: cover;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        margin: 2px;
+    }
+
+    .file-icon {
+        font-size: 2rem;
+        /* 32px */
+        margin: 2px;
+        color: #6c757d;
+    }
+
+    /* CSS BARU UNTUK PROGRES MESIN */
+    .progress-mesin-wrapper {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .progress-mesin-item {
+        text-align: center;
+    }
+</style>
+
+<!-- ============================================== -->
+<!-- 1. HEADER (DIKECILKAN) -->
+<!-- ============================================== -->
+<!-- Ganti mb-3 menjadi mb-2 -->
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+    <div>
+        <h4 class="mb-0">Dashboard Pekerjaan</h4>
+        <span class="text-muted">
+            Hi {{ user.username }} ({{ user.jabatan.nama_jabatan|default:"-" }})!
+        </span>
+    </div>
+    <div>
+        <a href="{% url 'core:job_add' %}" class="btn btn-primary btn-lg shadow-sm">
+            <i class="bi bi-plus-circle-fill"></i> Tambah Job Baru
+        </a>
+    </div>
+</div>
+
+<!-- ============================================== -->
+<!-- 2. DASBOR PROGRES MESIN (KONSEP BARU ANDA) -->
+<!-- ============================================== -->
+{% if progress_data %}
+<!-- Ganti mb-3 menjadi mb-2 -->
+<div class="card shadow-sm mb-2">
+    <div class="card-header fs-5">
+        <i class="bi bi-graph-up"></i>
+        Dasbor Progres Mesin (Bulan Ini)
+    </div>
+    <div class="card-body">
+        <div class="progress-mesin-wrapper">
+            {% for mesin in progress_data %}
+            <div class="progress-mesin-item">
+                <h6 class="mb-1">{{ mesin.nama }}</h6>
+                <div class="progress" role="progressbar" aria-valuenow="{{ mesin.progress }}" aria-valuemin="0"
+                    aria-valuemax="100" style="height: 25px; font-size: 0.9rem;">
+                    <div class="progress-bar 
+                        {% if mesin.progress == 100 %}bg-success
+                        {% elif mesin.progress >= 75 %}bg-info
+                        {% elif mesin.progress >= 50 %}bg-warning
+                        {% else %}bg-danger
+                        {% endif %}" style="width: {{ mesin.progress }}%">
+                        {{ mesin.progress }}%
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
+<!-- ============================================== -->
+<!-- 3. FILTER (DENGAN FILTER PIC & ASET BARU) -->
+<!-- ============================================== -->
+<!-- Ganti mb-3 menjadi mb-2 -->
+<div class="card shadow-sm mb-2">
+    <!-- Ganti card-body menjadi card-body p-2 (padding lebih kecil) -->
+    <div class="card-body p-2">
+        <form method="get" action="{% url 'core:dashboard' %}" class="row g-2 align-items-end">
+            <!-- Filter Bulan -->
+            <div class="col-md-2">
+                <label for="month-filter" class="form-label">Bulan</label>
+                <select name="month" id="month-filter" class="form-select form-select-sm">
+                    {% for month in month_list %}
+                    <option value="{{ month.id }}" {% if month.id == current_month %}selected{% endif %}>
+                        {{ month.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <!-- Filter Tahun -->
+            <div class="col-md-1">
+                <label for="year-filter" class="form-label">Tahun</label>
+                <select name="year" id="year-filter" class="form-select form-select-sm">
+                    {% for year in year_list %}
+                    <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>
+                        {{ year }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- === FILTER PIC === -->
+            <div class="col-md-2">
+                <label for="pic-filter" class="form-label">Filter PIC</label>
+                <select name="pic" id="pic-filter" class="form-select form-select-sm">
+                    <option value="" {% if not selected_pic_id %}selected{% endif %}>Semua Tim</option>
+                    <option value="my_jobs" {% if selected_pic_id == 'my_jobs' %}selected{% endif %}>Job Saya</option>
+                    <option disabled>---</option>
+                    {% for sub in subordinates_list %}
+                    <option value="{{ sub.id }}" {% if sub.id|stringformat:"s" == selected_pic_id %}selected{% endif %}>
+                        {{ sub.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            
+            <!-- === FILTER ASET (BARU - CASCADING) === -->
+            <div class="col-md-2">
+                <label for="line-filter" class="form-label">Line</label>
+                <select name="line" id="line-filter" class="form-select form-select-sm">
+                    <option value="">Semua Line</option>
+                    {% for line in line_list %}
+                    <option value="{{ line.id }}" {% if line.id|stringformat:"s" == selected_line_id %}selected{% endif %}>
+                        {{ line.nama }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+<div class="col-md-2">
+                <label for="mesin-filter" class="form-label">Mesin</label>
+                <select name="mesin" id="mesin-filter" class="form-select form-select-sm">
+                    <option value="">Semua Mesin</option>
+                    {% for mesin in mesin_list %}
+                    <option value="{{ mesin.id }}" {% if mesin.id|stringformat:"s" == selected_mesin_id %}selected{% endif %}>
+                        {{ mesin.nama }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label for="sub-mesin-filter" class="form-label">Sub Mesin</label>
+                <select name="sub_mesin" id="sub-mesin-filter" class="form-select form-select-sm">
+                    <option value="">Semua Sub</option>
+                    {% for sub in sub_mesin_list %}
+                    <option value="{{ sub.id }}" {% if sub.id|stringformat:"s" == selected_sub_mesin_id %}selected{% endif %}>
+                        {{ sub.nama }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-primary btn-sm w-100">Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================== -->
+<!-- 4. TABEL DAILY JOB -->
+<!-- ============================================== -->
+<!-- Ganti mb-3 menjadi mb-2 -->
+<div class="card shadow-sm mb-2">
+    <div class="card-header fs-5 d-flex justify-content-between align-items-center">
+        <div>
+            <i class="bi bi-calendar-day"></i>
+            Daily Jobs ({{ daily_total_count }})
+        </div>
+        <div class="gap-2 d-flex">
+            <a href="{% url 'core:export_daily_jobs_pdf' %}?{{ filter_params }}" class="btn btn-sm btn-danger" target="_blank">
+                <i class="bi bi-file-pdf"></i> Export PDF
+            </a>
+            <a href="{% url 'core:export_daily_jobs_excel' %}?{{ filter_params }}" class="btn btn-sm btn-success" target="_blank">
+                <i class="bi bi-file-earmark-excel"></i> Export Excel
+            </a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        {% with job_data=daily_job_data filter_params=filter_params %}
+        {% include 'job_table.html' %}
+        {% endwith %}
+    </div>
+    <!-- Pagination Controls untuk Daily Jobs -->
+    <div class="card-footer bg-light">
+        <div class="row align-items-center g-2">
+            <div class="col-md-4">
+                <form method="get" class="d-flex gap-2">
+                    <input type="hidden" name="month" value="{{ current_month }}">
+                    <input type="hidden" name="year" value="{{ current_year }}">
+                    <input type="hidden" name="pic" value="{{ selected_pic_id }}">
+                    <input type="hidden" name="line" value="{{ selected_line_id }}">
+                    <input type="hidden" name="mesin" value="{{ selected_mesin_id }}">
+                    <input type="hidden" name="sub_mesin" value="{{ selected_sub_mesin_id }}">
+                    <input type="hidden" name="sort" value="{{ sort_by }}">
+                    <input type="hidden" name="order" value="{{ sort_order }}">
+                    <label class="form-label mb-0">Baris per halaman:</label>
+                    <select name="page_size" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                        {% for size in page_size_options %}
+                        <option value="{{ size }}" {% if size == page_size %}selected{% endif %}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+            <div class="col-md-8 text-end">
+                <nav aria-label="Daily Jobs Pagination">
+                    <ul class="pagination justify-content-end mb-0">
+                        {% if daily_page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?daily_page=1&page_size={{ page_size }}&{{ filter_params }}">Awal</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?daily_page={{ daily_page_obj.previous_page_number }}&page_size={{ page_size }}&{{ filter_params }}">← Sebelumnya</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">Awal</span>
+                        </li>
+                        <li class="page-item disabled">
+                            <span class="page-link">← Sebelumnya</span>
+                        </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <span class="page-link">Halaman {{ daily_page_obj.number }} dari {{ daily_paginator.num_pages }}</span>
+                        </li>
+
+                        {% if daily_page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?daily_page={{ daily_page_obj.next_page_number }}&page_size={{ page_size }}&{{ filter_params }}">Selanjutnya →</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?daily_page={{ daily_paginator.num_pages }}&page_size={{ page_size }}&{{ filter_params }}">Akhir</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">Selanjutnya →</span>
+                        </li>
+                        <li class="page-item disabled">
+                            <span class="page-link">Akhir</span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================== -->
+<!-- 5. TABEL PROJECT JOB (Struktur sama) -->
+<!-- ============================================== -->
+<!-- Ganti mb-3 menjadi mb-2 -->
+<div class="card shadow-sm mb-2">
+    <div class="card-header fs-5 d-flex justify-content-between align-items-center">
+        <div>
+            <i class="bi bi-diagram-3-fill"></i>
+            Project Jobs ({{ project_total_count }})
+        </div>
+        <div class="gap-2 d-flex">
+            <a href="{% url 'core:export_project_jobs_pdf' %}?{{ filter_params }}" class="btn btn-sm btn-danger" target="_blank">
+                <i class="bi bi-file-pdf"></i> Export PDF
+            </a>
+            <a href="{% url 'core:export_project_jobs_excel' %}?{{ filter_params }}" class="btn btn-sm btn-success" target="_blank">
+                <i class="bi bi-file-earmark-excel"></i> Export Excel
+            </a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        {% with job_data=project_job_data filter_params=filter_params %}
+        {% include 'job_table.html' %}
+        {% endwith %}
+    </div>
+    <!-- Pagination Controls untuk Project Jobs -->
+    <div class="card-footer bg-light">
+        <div class="row align-items-center g-2">
+            <div class="col-md-4">
+                <form method="get" class="d-flex gap-2">
+                    <input type="hidden" name="month" value="{{ current_month }}">
+                    <input type="hidden" name="year" value="{{ current_year }}">
+                    <input type="hidden" name="pic" value="{{ selected_pic_id }}">
+                    <input type="hidden" name="line" value="{{ selected_line_id }}">
+                    <input type="hidden" name="mesin" value="{{ selected_mesin_id }}">
+                    <input type="hidden" name="sub_mesin" value="{{ selected_sub_mesin_id }}">
+                    <input type="hidden" name="sort" value="{{ sort_by }}">
+                    <input type="hidden" name="order" value="{{ sort_order }}">
+                    <label class="form-label mb-0">Baris per halaman:</label>
+                    <select name="page_size" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                        {% for size in page_size_options %}
+                        <option value="{{ size }}" {% if size == page_size %}selected{% endif %}>{{ size }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+            <div class="col-md-8 text-end">
+                <nav aria-label="Project Jobs Pagination">
+                    <ul class="pagination justify-content-end mb-0">
+                        {% if project_page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?project_page=1&page_size={{ page_size }}&{{ filter_params }}">Awal</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?project_page={{ project_page_obj.previous_page_number }}&page_size={{ page_size }}&{{ filter_params }}">← Sebelumnya</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">Awal</span>
+                        </li>
+                        <li class="page-item disabled">
+                            <span class="page-link">← Sebelumnya</span>
+                        </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <span class="page-link">Halaman {{ project_page_obj.number }} dari {{ project_paginator.num_pages }}</span>
+                        </li>
+
+                        {% if project_page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?project_page={{ project_page_obj.next_page_number }}&page_size={{ page_size }}&{{ filter_params }}">Selanjutnya →</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?project_page={{ project_paginator.num_pages }}&page_size={{ page_size }}&{{ filter_params }}">Akhir</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">Selanjutnya →</span>
+                        </li>
+                        <li class="page-item disabled">
+                            <span class="page-link">Akhir</span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ============================================== -->
+<!-- 6. MODAL POP-UP (UNTUK CLOSE JOB) -->
+<!-- ============================================== -->
+<div class="modal fade" id="jobDateModal" tabindex="-1" aria-labelledby="jobDateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="jobDateModalLabel">Update Status Pekerjaan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form id="jobDateModalForm" method="post" action="">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Anda akan mengupdate status untuk:</p>
+                    <p><strong id="jobDateModalInfo">...</strong></p>
+
+                    <div class="mb-3">
+                        <label for="id_modal_status" class="form-label">{{ modal_form.status.label }}</label>
+                        {{ modal_form.status }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_modal_catatan" class="form-label">{{ modal_form.catatan.label }}</label>
+                        {{ modal_form.catatan }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+<!-- ============================================== -->
+<!-- 7. JAVASCRIPT (UNTUK MODAL & CASCADING FILTER) -->
+<!-- ============================================== -->
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    // Modal Script
+    document.addEventListener('DOMContentLoaded', function () {
+        var jobDateModal = document.getElementById('jobDateModal');
+        jobDateModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+
+            var jobDateId = button.getAttribute('data-jobdate-id');
+            var jobDateStatus = button.getAttribute('data-jobdate-status');
+            var jobDateCatatan = button.getAttribute('data-jobdate-catatan');
+            var jobDateInfo = button.getAttribute('data-jobdate-info');
+
+            var currentParams = "{{ filter_params|escapejs }}";
+            var actionUrl = `/job-date/update/${jobDateId}/`;
+
+            if (currentParams) {
+                actionUrl += `?${currentParams}`;
+            }
+
+            var modalTitleInfo = document.getElementById('jobDateModalInfo');
+            var modalForm = document.getElementById('jobDateModalForm');
+            var modalStatusSelect = document.getElementById('id_status');
+            var modalCatatanTextarea = document.getElementById('id_catatan');
+
+            modalForm.action = actionUrl;
+            modalTitleInfo.textContent = jobDateInfo;
+            modalStatusSelect.value = jobDateStatus;
+            modalCatatanTextarea.value = jobDateCatatan;
+        });
+
+        // === CASCADING DROPDOWN UNTUK FILTER ASET ===
+        $('#line-filter').change(function () {
+            const lineId = $(this).val();
+            $('#mesin-filter').html('<option value="">Semua Mesin</option>');
+            $('#sub-mesin-filter').html('<option value="">Semua Sub</option>');
+
+            if (lineId) {
+                $.ajax({
+                    url: '{% url "core:load_children" %}',
+                    data: { 'parent_id': lineId },
+                    success: function (data) {
+                        data.forEach(item => {
+                            $('#mesin-filter').append(`<option value="${item.id}">${item.nama}</option>`);
+                        });
+                    }
+                });
+            }
+        });
+
+        $('#mesin-filter').change(function () {
+            const mesinId = $(this).val();
+            $('#sub-mesin-filter').html('<option value="">Semua Sub</option>');
+
+            if (mesinId) {
+                $.ajax({
+                    url: '{% url "core:load_children" %}',
+                    data: { 'parent_id': mesinId },
+                    success: function (data) {
+                        data.forEach(item => {
+                            $('#sub-mesin-filter').append(`<option value="${item.id}">${item.nama}</option>`);
+                        });
+                    }
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}

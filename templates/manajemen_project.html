@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}Daftar Project{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Kolom Kiri: Form Tambah/Edit -->
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header fs-5">
+                <i class="bi bi-diagram-3-fill"></i>
+                <!-- Judul form dinamis: Tambah atau Edit -->
+                {% if form.instance.id %}
+                    Edit Project
+                {% else %}
+                    Tambah Project Baru
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        {{ form.nama_project.label_tag }}
+                        {{ form.nama_project }}
+                        {% if form.nama_project.errors %}
+                            <div class="text-danger small">{{ form.nama_project.errors.as_text }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.deskripsi.label_tag }}
+                        {{ form.deskripsi }}
+                        {% if form.deskripsi.errors %}
+                            <div class="text-danger small">{{ form.deskripsi.errors.as_text }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save-fill"></i> Simpan
+                        </button>
+                        
+                        <!-- Tampilkan tombol Batal jika sedang meng-edit -->
+                        {% if form.instance.id %}
+                        <a href="{% url 'core:manajemen_project' %}" class="btn btn-secondary">
+                            Batal Edit
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kolom Kanan: Daftar Project -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header fs-5">
+                <i class="bi bi-list-task"></i>
+                Daftar Project ({{ project_list.count }})
+            </div>
+            <div class="card-body p-0">
+                {% if project_list %}
+                <ul class="list-group list-group-flush">
+                    {% for project in project_list %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="fs-5">{{ project.nama_project }}</span>
+                            <br>
+                            <small class="text-muted">{{ project.deskripsi|truncatechars:100 }}</small>
+                        </div>
+                        <div>
+                            <!-- Tombol Edit -->
+                            <a href="?edit={{ project.id }}" class="btn btn-sm btn-outline-warning">
+                                <i class="bi bi-pencil-fill"></i> Edit
+                            </a>
+                            <!-- Tombol Hapus -->
+                            <a href="{% url 'core:delete_project' project.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Anda yakin ingin menghapus project {{ project.nama_project }}?')">
+                                <i class="bi bi-trash-fill"></i> Hapus
+                            </a>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                    <p class="text-center p-4">Belum ada project yang dibuat.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

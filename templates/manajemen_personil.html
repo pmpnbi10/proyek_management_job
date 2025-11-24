@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}Tim Saya{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Kolom Kiri: Form Tambah/Edit -->
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header fs-5">
+                <i class="bi bi-person-plus-fill"></i>
+                <!-- Judul form dinamis: Tambah atau Edit -->
+                {% if form.instance.id %}
+                    Edit Personil
+                {% else %}
+                    Tambah Personil Baru
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        {{ form.nama_lengkap.label_tag }}
+                        {{ form.nama_lengkap }}
+                        {% if form.nama_lengkap.errors %}
+                            <div class="text-danger small">{{ form.nama_lengkap.errors.as_text }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save-fill"></i> Simpan
+                        </button>
+                        
+                        <!-- Tampilkan tombol Batal jika sedang meng-edit -->
+                        {% if form.instance.id %}
+                        <a href="{% url 'core:manajemen_personil' %}" class="btn btn-secondary">
+                            Batal Edit
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kolom Kanan: Daftar Tim Saya -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header fs-5">
+                <i class="bi bi-people-fill"></i>
+                Daftar Tim Saya ({{ personil_list.count }})
+            </div>
+            <div class="card-body p-0">
+                {% if personil_list %}
+                <ul class="list-group list-group-flush">
+                    {% for personil in personil_list %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="fs-5">{{ personil.nama_lengkap }}</span>
+                        <div>
+                            <!-- Tombol Edit -->
+                            <a href="?edit={{ personil.id }}" class="btn btn-sm btn-outline-warning">
+                                <i class="bi bi-pencil-fill"></i> Edit
+                            </a>
+                            <!-- Tombol Hapus -->
+                            <a href="{% url 'core:delete_personil' personil.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Anda yakin ingin menghapus {{ personil.nama_lengkap }}?')">
+                                <i class="bi bi-trash-fill"></i> Hapus
+                            </a>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                    <p class="text-center p-4">Anda belum memiliki anggota tim personil.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

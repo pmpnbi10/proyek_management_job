@@ -1,0 +1,460 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if form.instance.id %}
+        Edit Pekerjaan
+    {% else %}
+        {% if project %}
+            Tambah Job ke Project: {{ project.nama_project }}
+        {% else %}
+            Tambah Pekerjaan Baru
+        {% endif %}
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" id="job-form">
+    {% csrf_token %}
+    
+    <div class="row">
+        <!-- ============================================== -->
+        <!-- KOLOM KIRI (7/12) -->
+        <!-- ============================================== -->
+        <div class="col-lg-7 mb-4">
+            
+            <!-- Card 1: Detail Utama -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header fs-5">
+                    <i class="bi bi-pencil-square"></i>
+                    {% if form.instance.id %}
+                        Edit Pekerjaan: {{ form.instance.nama_pekerjaan }}
+                    {% else %}
+                        Detail Pekerjaan
+                    {% endif %}
+                </div>
+                <div class="card-body p-4">
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label for="{{ form.nama_pekerjaan.id_for_label }}" class="form-label">
+                                {{ form.nama_pekerjaan.label }}
+                            </label>
+                            {{ form.nama_pekerjaan }}
+                            <div class="text-danger small">{{ form.nama_pekerjaan.errors }}</div>
+                        </div>
+                        
+                        <!-- Tipe Job (Bisa jadi hidden jika dari project) -->
+                        <div class="col-md-6" {% if project %}style="display:none;"{% endif %}>
+                            <label for="{{ form.tipe_job.id_for_label }}" class="form-label">
+                                {{ form.tipe_job.label }}
+                            </label>
+                            {{ form.tipe_job }}
+                            <div class="text-danger small">{{ form.tipe_job.errors }}</div>
+                        </div>
+                        
+                        <!-- Project (Bisa jadi hidden jika dari project) -->
+                        <div class="col-md-6" id="project-field-container" 
+                             {% if project %}style="display:none;"
+                             {% else %}style="display:none;"
+                             {% endif %}>
+                            <label for="{{ form.project.id_for_label }}" class="form-label">
+                                {{ form.project.label }}
+                            </label>
+                            {{ form.project }}
+                            <div class="text-danger small">{{ form.project.errors }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- End Card 1 -->
+
+            <!-- Card 2: Aset & Penugasan -->
+            <div class="card shadow-sm">
+                <div class="card-header fs-5">
+                    <i class="bi bi-person-gear"></i>
+                    Aset, Penugasan & Kategori
+                </div>
+                <div class="card-body p-4">
+                    <h6 class="text-muted">Pilih Aset (Line/Mesin)</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label for="{{ form.line.id_for_label }}" class="form-label">
+                                {{ form.line.label }}
+                            </label>
+                            {{ form.line }}
+                            <div class="text-danger small">{{ form.line.errors }}</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="{{ form.mesin.id_for_label }}" class="form-label">
+                                {{ form.mesin.label }}
+                            </label>
+                            {{ form.mesin }}
+                            <div class="text-danger small">{{ form.mesin.errors }}</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="{{ form.sub_mesin.id_for_label }}" class="form-label">
+                                {{ form.sub_mesin.label }}
+                            </label>
+                            {{ form.sub_mesin }}
+                            <div class="text-danger small">{{ form.sub_mesin.errors }}</div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- === TAMBAHKAN FIELD BARU INI === -->
+                    <h6 class="text-muted mt-3">Kategori Pekerjaan</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.fokus.id_for_label }}" class="form-label">
+                                {{ form.fokus.label }}
+                            </label>
+                            {{ form.fokus }}
+                            <div class="text-danger small">{{ form.fokus.errors }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.prioritas.id_for_label }}" class="form-label">
+                                {{ form.prioritas.label }}
+                            </label>
+                            {{ form.prioritas }}
+                            <div class="text-danger small">{{ form.prioritas.errors }}</div>
+                        </div>
+                    </div>
+                    <!-- ================================== -->
+                    
+                    <hr>
+                    
+                    <!-- === FIELD ASSIGN TO (BARU) === -->
+                    <h6 class="text-muted mt-3">Assign To Bawahan (Opsional)</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-12">
+                            <label for="{{ form.assigned_to.id_for_label }}" class="form-label">
+                                {{ form.assigned_to.label }}
+                            </label>
+                            {{ form.assigned_to }}
+                            <small class="form-text text-muted">Pilih bawahan Anda. Personil akan menyesuaikan berdasarkan pilihan ini.</small>
+                            <div class="text-danger small">{{ form.assigned_to.errors }}</div>
+                        </div>
+                    </div>
+                    <!-- ================================== -->
+                    
+                    <hr>
+
+                    <h6 class="text-muted mt-3">Pilih Personil</h6>
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label for="{{ form.personil_ditugaskan.id_for_label }}" class="form-label">
+                                {{ form.personil_ditugaskan.label }}
+                            </label>
+                            {{ form.personil_ditugaskan }}
+                            <small class="form-text text-muted">{{ form.personil_ditugaskan.help_text }}</small>
+                            <div class="text-danger small">{{ form.personil_ditugaskan.errors }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- End Card 2 -->
+
+        </div> <!-- End Kolom Kiri -->
+
+        <!-- ============================================== -->
+        <!-- KOLOM KANAN (5/12) -->
+        <!-- ============================================== -->
+        <div class="col-lg-5">
+            
+            <!-- Card 3: Tanggal -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header fs-5">
+                    <i class="bi bi-calendar-event-fill"></i>
+                    Tanggal Pelaksanaan
+                </div>
+                <div class="card-body p-4">
+                    <input type="text" id="flatpickr-calendar" class="form-control" placeholder="Klik untuk memilih satu atau beberapa tanggal...">
+                    {{ form.tanggal_pelaksanaan }}
+                    <div class="text-danger small">{{ form.tanggal_pelaksanaan.errors }}</div>
+                </div>
+            </div> <!-- End Card 3 -->
+
+            <!-- Card 4: Lampiran -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header fs-5">
+                    <i class="bi bi-paperclip"></i>
+                    Lampiran File/Gambar
+                </div>
+                <div class="card-body p-4">
+                    <div id="attachment-formset-container">
+                        {{ attachment_formset.management_form }}
+                        {% for form in attachment_formset %}
+                            <div class="row g-2 mb-3 p-2 border rounded attachment-form">
+                                {{ form.id }}
+                                <div class="col-12 mb-2">
+                                    <label class="form-label small text-muted">File</label>
+                                    {{ form.file }}
+                                </div>
+                                <div class="col-md-7">
+                                    <label class="form-label small text-muted">Deskripsi</label>
+                                    {{ form.deskripsi }}
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label small text-muted">Tipe</label>
+                                    {{ form.tipe_file }}
+                                </div>
+                                <div class="col-12 mt-2">
+                                    {% if form.instance.id %}
+                                        {{ form.DELETE }} <label for="{{ form.DELETE.id_for_label }}">Hapus lampiran ini?</label>
+                                    {% endif %}
+                                </div>
+                                <div class="text-danger small w-100">{{ form.errors }}</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <button type="button" id="add-attachment-form" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-plus-circle"></i> Tambah Lampiran
+                    </button>
+                    <!-- Template kosong -->
+                    <div id="empty-attachment-form" style="display: none;">
+                         <div class="row g-2 mb-3 p-2 border rounded attachment-form">
+                            <div class="col-12 mb-2">
+                                <label class="form-label small text-muted">File</label>
+                                {{ attachment_formset.empty_form.file }}
+                            </div>
+                            <div class="col-md-7">
+                                <label class="form-label small text-muted">Deskripsi</label>
+                                {{ attachment_formset.empty_form.deskripsi }}
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small text-muted">Tipe</label>
+                                {{ attachment_formset.empty_form.tipe_file }}
+                            </div>
+                            <div class="col-12 mt-2">
+                                <button type="button" class="btn btn-sm btn-danger remove-attachment-form">Hapus</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- End Card 4 -->
+            
+            <!-- Card 5: Tombol Simpan -->
+            <div class="card shadow-sm">
+                <div class="card-body p-3 d-grid gap-2">
+                     <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-save-fill"></i> Simpan Pekerjaan
+                    </button>
+                    {% if project %}
+                    <a href="{% url 'core:project_detail' project.id %}" class="btn btn-secondary">Batal</a>
+                    {% else %}
+                    <a href="{% url 'core:dashboard' %}" class="btn btn-secondary">Batal</a>
+                    {% endif %}
+                </div>
+            </div> <!-- End Card 5 -->
+
+        </div> <!-- End Kolom Kanan -->
+    </div> <!-- End Row -->
+</form>
+{% endblock %}
+
+
+{% block extra_js %}
+<!-- JavaScript untuk mengatur form dinamis -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // === 1. Logika Tipe Job (Sama seperti sebelumnya) ===
+    const tipeJobSelect = document.getElementById('{{ form.tipe_job.id_for_label }}');
+    const projectContainer = document.getElementById('project-field-container');
+    const projectSelect = document.getElementById('{{ form.project.id_for_label }}');
+
+    function toggleProjectField() {
+        // Jangan jalankan jika field-nya disembunyikan (mode tambah dari project)
+        if (tipeJobSelect.offsetParent === null) {
+            return;
+        }
+        
+        if (tipeJobSelect.value === 'Project') {
+            projectContainer.style.display = 'block';
+            projectSelect.required = true;
+        } else {
+            projectContainer.style.display = 'none';
+            projectSelect.required = false;
+        }
+    }
+    toggleProjectField();
+    if (tipeJobSelect) {
+        tipeJobSelect.addEventListener('change', toggleProjectField);
+    }
+
+    
+    // === 2. Logika Kalender Flatpickr (BARU) ===
+    const dateInputHidden = document.getElementById('{{ form.tanggal_pelaksanaan.id_for_label }}');
+    const calendarInput = document.getElementById('flatpickr-calendar');
+    
+    let defaultDates = [];
+    if (dateInputHidden.value) {
+        defaultDates = dateInputHidden.value.split(',');
+    }
+
+    flatpickr(calendarInput, {
+        mode: "multiple", 
+        dateFormat: "Y-m-d", 
+        defaultDate: defaultDates, 
+        inline: true, // Tampilkan kalender langsung di halaman
+        onChange: function(selectedDates, dateStr, instance) {
+            dateInputHidden.value = dateStr;
+        }
+    });
+
+
+    // === 3. Logika Lampiran (Sama seperti sebelumnya) ===
+    const attachmentFormsetContainer = document.getElementById('attachment-formset-container');
+    const addAttachmentButton = document.getElementById('add-attachment-form');
+    const emptyAttachmentForm = document.getElementById('empty-attachment-form').innerHTML;
+    const totalAttachmentForms = document.getElementById('id_attachments-TOTAL_FORMS');
+
+    addAttachmentButton.addEventListener('click', function() {
+        let formIndex = parseInt(totalAttachmentForms.value);
+        let newForm = emptyAttachmentForm.replace(/__prefix__/g, formIndex);
+        
+        let tempDiv = document.createElement('div');
+        tempDiv.innerHTML = newForm;
+
+        attachmentFormsetContainer.appendChild(tempDiv.firstElementChild);
+        totalAttachmentForms.value = formIndex + 1;
+        
+        tempDiv.querySelector('.remove-attachment-form').addEventListener('click', function() {
+            this.closest('.attachment-form').remove();
+        });
+    });
+
+    
+    // === 4. Logika Dropdown Aset Bertingkat (Sama seperti sebelumnya) ===
+    const lineSelect = document.getElementById('id_line');
+    const mesinSelect = document.getElementById('id_mesin');
+    const subMesinSelect = document.getElementById('id_sub_mesin');
+    const ajaxUrl = "{% url 'core:load_children' %}";
+    
+    // === 4a. Logika Assign To & Dynamic Personil Loading (BARU) ===
+    const assignToSelect = document.getElementById('id_assigned_to');
+    const personilSelect = document.getElementById('id_personil_ditugaskan');
+    const loadPersonilUrl = "{% url 'core:load_personil' %}";
+
+    function updatePersonilList(assignedToId) {
+        if (!personilSelect) return;
+        
+        // Ambil selected IDs SEBELUM clear innerHTML
+        let selectedIds = Array.from(personilSelect.options).filter(opt => opt.selected).map(opt => parseInt(opt.value));
+        
+        personilSelect.innerHTML = '<option value="">Loading...</option>';
+        
+        const url = new URL(loadPersonilUrl, window.location.origin);
+        url.searchParams.append('assigned_to_id', assignedToId || '');
+        
+        console.log('Loading personil from:', url.toString());
+        
+        fetch(url.toString())
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Personil data:', data);
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                personilSelect.innerHTML = '';
+                
+                data.forEach(function(personil) {
+                    let option = document.createElement('option');
+                    option.value = personil.id;
+                    option.textContent = personil.nama_lengkap;
+                    
+                    // Pertahankan selection jika personil masih ada
+                    if (selectedIds.includes(personil.id)) {
+                        option.selected = true;
+                    }
+                    
+                    personilSelect.appendChild(option);
+                });
+                
+                // Jika kosong, tampilkan pesan
+                if (data.length === 0) {
+                    let option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = '(Tidak ada personil)';
+                    option.disabled = true;
+                    personilSelect.appendChild(option);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading personil:', error);
+                personilSelect.innerHTML = '<option value="">Error: ' + error.message + '</option>';
+            });
+    }
+    
+    if (assignToSelect) {
+        assignToSelect.addEventListener('change', function() {
+            console.log('Assign To changed to:', this.value);
+            updatePersonilList(this.value);
+        });
+        
+        // JANGAN load personil saat initial load - biarkan Django render form dengan benar
+        // AJAX hanya untuk update ketika assigned_to berubah
+        console.log('assignToSelect found, AJAX listener ready');
+    }
+
+    function updateDropdown(selectElement, options, selectedId) {
+        selectElement.innerHTML = '<option value="">---------</option>'; 
+        let isSelectedIdInOptions = false;
+        options.forEach(function(option) {
+            let selected = '';
+            if (option.id == selectedId) {
+                selected = ' selected';
+                isSelectedIdInOptions = true;
+            }
+            selectElement.innerHTML += `<option value="${option.id}"${selected}>${option.nama}</option>`;
+        });
+        
+        if (selectedId && !isSelectedIdInOptions) {
+             selectElement.value = "";
+        }
+    }
+
+    function loadChildren(parentId, targetSelect, selectedId) {
+        if (!parentId) {
+            updateDropdown(targetSelect, [], null);
+            return;
+        }
+        
+        targetSelect.innerHTML = '<option value="">Loading...</option>'; 
+        
+        fetch(`${ajaxUrl}?parent_id=${parentId}`)
+            .then(response => response.json())
+            .then(data => {
+                updateDropdown(targetSelect, data, selectedId);
+                if (selectedId) {
+                    targetSelect.dispatchEvent(new Event('change'));
+                }
+            });
+    }
+
+    lineSelect.addEventListener('change', function() {
+        const lineId = this.value;
+        const selectedMesinId = mesinSelect.value;
+        loadChildren(lineId, mesinSelect, selectedMesinId);
+        updateDropdown(subMesinSelect, [], null);
+    });
+
+    mesinSelect.addEventListener('change', function() {
+        const mesinId = this.value;
+        const selectedSubMesinId = subMesinSelect.value;
+        loadChildren(mesinId, subMesinSelect, selectedSubMesinId);
+    });
+
+});
+</script>
+{% endblock %}

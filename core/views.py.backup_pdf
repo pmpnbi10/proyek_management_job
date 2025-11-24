@@ -1,0 +1,473 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db import transaction 
+from .models import Job, Project, Personil, AsetMesin, JobDate, CustomUser
+from django.http import JsonResponse, HttpResponseRedirect
+# Tambahkan 'Count' dan 'Case' untuk kalkulasi
+from django.db.models import Q, Count, Case, When, IntegerField 
+from django.urls import reverse
+import datetime 
+import calendar 
+
+from .forms import (
+    PersonilForm, 
+    ProjectForm, 
+    JobDateStatusForm, 
+    JobForm, 
+    AttachmentFormSet
+)
+
+# ==============================================================================
+# VIEW HALAMAN UTAMA (DASHBOARD) - (ROMBAK BESAR)
+# ==============================================================================
+@login_required(login_url='core:login')
+def dashboard_view(request):
+    user = request.user
+    
+    # === 1. LOGIKA FILTER (BULAN & TAHUN) ===
+    now = datetime.datetime.now()
+    try:
+        current_year = int(request.GET.get('year', now.year))
+        current_month = int(request.GET.get('month', now.month))
+    except ValueError:
+        current_year = now.year
+        current_month = now.month
+    
+    year_list = range(now.year - 2, now.year + 3) 
+    month_list = [
+        {"id": 1, "name": "Januari"}, {"id": 2, "name": "Februari"},
+        {"id": 3, "name": "Maret"}, {"id": 4, "name": "April"},
+        {"id": 5, "name": "Mei"}, {"id": 6, "name": "Juni"},
+        {"id": 7, "name": "Juli"}, {"id": 8, "name": "Agustus"},
+        {"id": 9, "name": "September"}, {"id": 10, "name": "Oktober"},
+        {"id": 11, "name": "November"}, {"id": 12, "name": "Desember"}
+    ]
+    
+    # === 2. LOGIKA FILTER PIC (KONSEP BARU ANDA) ===
+    subordinate_ids = user.get_all_subordinates()
+    subordinates_list = CustomUser.objects.filter(id__in=subordinate_ids).order_by('username')
+    
+    selected_pic_id = request.GET.get('pic', '')
+    
+    if selected_pic_id == 'my_jobs':
+        team_query = Q(pic=user)
+    elif selected_pic_id:
+        try:
+            selected_user = get_object_or_404(CustomUser, id=int(selected_pic_id))
+            selected_user_sub_ids = selected_user.get_all_subordinates()
+            team_ids = selected_user_sub_ids + [selected_user.id]
+            team_query = Q(pic_id__in=team_ids)
+        except (ValueError, CustomUser.DoesNotExist):
+            team_query = Q(pic=user) | Q(pic_id__in=subordinate_ids) # Fallback
+    else:
+        team_query = Q(pic=user) | Q(pic_id__in=subordinate_ids)
+
+    # === 3. LOGIKA FILTER ASET (BARU) ===
+    selected_line_id = request.GET.get('line', '')
+    selected_mesin_id = request.GET.get('mesin', '')
+    selected_sub_mesin_id = request.GET.get('sub_mesin', '')
+    
+    # === 4. LOGIKA DATA TABEL (QUERY OPTIMASI BARU) ===
+    # Filter Job berdasarkan TIM, TAPI JANGAN filter tanggal dulu
+    all_jobs_team_base = Job.objects.filter(team_query).distinct()
+    
+    # Apply asset filters
+    if selected_sub_mesin_id:
+        all_jobs_team_base = all_jobs_team_base.filter(aset_id=selected_sub_mesin_id)
+    elif selected_mesin_id:
+        all_jobs_team_base = all_jobs_team_base.filter(aset__parent_id=selected_mesin_id)
+    elif selected_line_id:
+        all_jobs_team_base = all_jobs_team_base.filter(aset__parent__parent_id=selected_line_id)
+    
+    # Sekarang filter job yang punya tanggal di bulan/tahun terpilih
+    all_jobs_team = all_jobs_team_base.filter(
+        tanggal_pelaksanaan__tanggal__month=current_month,
+        tanggal_pelaksanaan__tanggal__year=current_year
+    ).select_related(
+        'pic', 
+        'project',
+        'aset__parent__parent' 
+    ).prefetch_related(
+        'personil_ditugaskan', 
+        'tanggal_pelaksanaan',
+        'attachments'
+    ).distinct()
+
+    # === 3a. LOGIKA SORTING BARU ===
+    sort_by = request.GET.get('sort', 'updated_at')  # Default ke 'updated_at'
+    sort_order = request.GET.get('order', 'desc')  # Default descending
+    
+    # Mapping kolom sorting ke field database
+    sort_mapping = {
+        'nama_pekerjaan': 'nama_pekerjaan',
+        'pic': 'pic__username',
+        'line': 'aset__parent__parent__nama',
+        'mesin': 'aset__parent__nama',
+        'sub_mesin': 'aset__nama',
+        'fokus': 'fokus',
+        'prioritas': 'prioritas',
+        'updated_at': 'updated_at',
+    }
+    
+    # Dapatkan field sorting yang valid
+    sort_field = sort_mapping.get(sort_by, 'updated_at')
+    
+    # Tambahkan prefix - untuk descending
+    if sort_order == 'desc':
+        sort_field = f'-{sort_field}'
+    
+    # Apply sorting (kecuali untuk 'progress' yang perlu special handling)
+    if sort_by == 'progress':
+        # Untuk progress, kita akan sort di Python setelah query
+        # karena ini adalah calculated field
+        daily_job_data = list(all_jobs_team.filter(tipe_job='Daily'))
+        project_job_data = list(all_jobs_team.filter(tipe_job='Project'))
+        
+        # Sort berdasarkan get_progress_percent()
+        reverse_sort = (sort_order == 'desc')
+        daily_job_data.sort(key=lambda x: x.get_progress_percent(), reverse=reverse_sort)
+        project_job_data.sort(key=lambda x: x.get_progress_percent(), reverse=reverse_sort)
+    else:
+        # Sorting normal via database
+        daily_job_data = all_jobs_team.filter(tipe_job='Daily').order_by(sort_field)
+        project_job_data = all_jobs_team.filter(tipe_job='Project').order_by(sort_field)
+        
+    modal_form = JobDateStatusForm()
+
+    # === 5. LOGIKA DROPDOWN DATA ASET ===
+    # Get all Lines (level=0)
+    line_list = AsetMesin.objects.filter(level=0).order_by('nama')
+    
+    # Get Mesin based on selected Line (level=1)
+    mesin_list = AsetMesin.objects.none()
+    if selected_line_id:
+        mesin_list = AsetMesin.objects.filter(parent_id=selected_line_id, level=1).order_by('nama')
+    
+    # Get Sub Mesin based on selected Mesin (level=2)
+    sub_mesin_list = AsetMesin.objects.none()
+    if selected_mesin_id:
+        sub_mesin_list = AsetMesin.objects.filter(parent_id=selected_mesin_id, level=2).order_by('nama')
+    
+    # === 6. LOGIKA BARU: DASBOR PROGRES MESIN (KONSEP 2 ANDA) ===
+    
+    # Ambil semua Aset (Mesin, level=1) yang relevan dengan tim Anda
+    # dan punya job di bulan/tahun terpilih
+    relevant_aset_ids = all_jobs_team_base.filter(
+        aset__level=2, # Ambil Sub-Mesin
+        tanggal_pelaksanaan__tanggal__month=current_month,
+        tanggal_pelaksanaan__tanggal__year=current_year
+    ).values_list('aset__parent_id', flat=True).distinct() # Ambil ID Mesin (parent-nya)
+    
+    relevant_mesin = AsetMesin.objects.filter(id__in=relevant_aset_ids)
+
+    # Hitung progres untuk setiap mesin
+    progress_data = []
+    for mesin in relevant_mesin:
+        # Ambil semua JobDate yang terkait dengan mesin ini & filter
+        dates_in_mesin = JobDate.objects.filter(
+            job__in=all_jobs_team_base,      # Hanya job dari tim
+            job__aset__parent=mesin,         # Hanya job di bawah mesin ini
+            tanggal__month=current_month, # Hanya di bulan ini
+            tanggal__year=current_year    # Hanya di tahun ini
+        )
+        
+        total_dates = dates_in_mesin.count()
+        if total_dates > 0:
+            done_dates = dates_in_mesin.filter(status='Done').count()
+            progress = int((done_dates / total_dates) * 100)
+            progress_data.append({
+                'nama': mesin.nama,
+                'progress': progress
+            })
+    
+    # Urutkan berdasarkan progress (opsional, tapi bagus)
+    progress_data = sorted(progress_data, key=lambda x: x['progress'], reverse=True)
+    
+    # ==========================================================
+
+    context = {
+        'user': user,
+        'daily_job_data': daily_job_data,
+        'project_job_data': project_job_data,
+        
+        # Filter Context
+        'current_month': current_month,
+        'current_year': current_year,
+        'month_list': month_list,
+        'year_list': year_list,
+        'modal_form': modal_form, 
+        
+        'subordinates_list': subordinates_list,
+        'selected_pic_id': selected_pic_id,
+        
+        # Asset Filter Context (BARU)
+        'line_list': line_list,
+        'mesin_list': mesin_list,
+        'sub_mesin_list': sub_mesin_list,
+        'selected_line_id': selected_line_id,
+        'selected_mesin_id': selected_mesin_id,
+        'selected_sub_mesin_id': selected_sub_mesin_id,
+        
+        # Sorting Context (BARU)
+        'sort_by': sort_by,
+        'sort_order': sort_order,
+        
+        'filter_params': request.GET.urlencode(),
+        
+        'progress_data': progress_data, # <-- KIRIM DATA PROGRES BARU
+    }
+    return render(request, 'dashboard.html', context)
+
+
+# ==============================================================================
+# VIEW DETAIL PROJECT (QUERY OPTIMASI BARU)
+# ==============================================================================
+@login_required(login_url='core:login')
+def project_detail_view(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    
+    jobs_in_project = project.jobs.all().select_related(
+        'pic', 
+        'aset__parent__parent' 
+    ).prefetch_related(
+        'personil_ditugaskan', 
+        'tanggal_pelaksanaan',
+        'attachments'
+    ).distinct()
+
+    modal_form = JobDateStatusForm()
+
+    context = {
+        'project': project,
+        'job_data': jobs_in_project, 
+        'modal_form': modal_form,
+        'filter_params': request.GET.urlencode(),
+    }
+    return render(request, 'detail_project.html', context)
+
+
+# ==============================================================================
+# VIEW MANAJEMEN PERSONIL (TIM SAYA)
+# ==============================================================================
+@login_required(login_url='core:login')
+def manajemen_personil(request):
+    user = request.user
+    personil_to_edit = None
+    edit_id = request.GET.get('edit')
+    if edit_id:
+        personil_to_edit = get_object_or_404(Personil, id=edit_id, penanggung_jawab=user)
+    if request.method == 'POST':
+        form = PersonilForm(request.POST, instance=personil_to_edit) if personil_to_edit else PersonilForm(request.POST)
+        if form.is_valid():
+            personil = form.save(commit=False) 
+            personil.penanggung_jawab = user 
+            personil.save() 
+            messages.success(request, f"Sukses menyimpan data {personil.nama_lengkap}!")
+            return redirect('core:manajemen_personil')
+        else:
+            messages.error(request, "Gagal menyimpan, cek error di form.")
+    else:
+        form = PersonilForm(instance=personil_to_edit) if personil_to_edit else PersonilForm()
+    personil_list = Personil.objects.filter(penanggung_jawab=user).order_by('nama_lengkap')
+    context = {'form': form, 'personil_list': personil_list}
+    return render(request, 'manajemen_personil.html', context)
+
+# ==============================================================================
+# VIEW HAPUS PERSONIL
+# ==============================================================================
+@login_required(login_url='core:login')
+def delete_personil(request, personil_id):
+    personil = get_object_or_404(Personil, id=personil_id, penanggung_jawab=request.user)
+    try:
+        nama = personil.nama_lengkap
+        personil.delete()
+        messages.success(request, f"Sukses menghapus data {nama}.")
+    except Exception as e:
+        messages.error(request, f"Gagal menghapus data: {e}")
+    return redirect('core:manajemen_personil')
+
+# ==============================================================================
+# VIEW MANAJEMEN PROJECT
+# ==============================================================================
+@login_required(login_url='core:login')
+def manajemen_project(request):
+    user = request.user
+    project_to_edit = None
+    edit_id = request.GET.get('edit')
+    if edit_id:
+        project_to_edit = get_object_or_404(Project, id=edit_id)
+    if request.method == 'POST':
+        form = ProjectForm(request.POST, instance=project_to_edit) if project_to_edit else ProjectForm(request.POST)
+        if form.is_valid():
+            project = form.save(commit=False)
+            if not project_to_edit:
+                project.manager_project = user 
+            project.save() 
+            messages.success(request, f"Sukses menyimpan project: {project.nama_project}!")
+            return redirect('core:manajemen_project')
+        else:
+            messages.error(request, "Gagal menyimpan, cek error di form.")
+    else:
+        form = ProjectForm(instance=project_to_edit) if project_to_edit else ProjectForm()
+    project_list = Project.objects.all().order_by('-created_at')
+    context = {'form': form, 'project_list': project_list}
+    return render(request, 'manajemen_project.html', context)
+
+# ==============================================================================
+# VIEW HAPUS PROJECT
+# ==============================================================================
+@login_required(login_url='core:login')
+def delete_project(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    try:
+        nama = project.nama_project
+        project.delete()
+        messages.success(request, f"Sukses menghapus project: {nama}.")
+    except Exception as e:
+        messages.error(request, f"Gagal menghapus: {e}. Mungkin project ini sudah dipakai di Job.")
+    return redirect('core:manajemen_project')
+
+# ==============================================================================
+# VIEW UPDATE STATUS TANGGAL (MODAL POP-UP)
+# ==============================================================================
+@login_required(login_url='core:login')
+def update_job_date_status(request, job_date_id):
+    user = request.user
+    subordinate_ids = user.get_all_subordinates()
+    
+    allowed_users_query = Q(job__pic=user) | Q(job__pic_id__in=subordinate_ids)
+    
+    job_date = get_object_or_404(JobDate, allowed_users_query, id=job_date_id)
+    
+    if request.method == 'POST':
+        form = JobDateStatusForm(request.POST, instance=job_date)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Sukses update status tanggal {job_date.tanggal}!")
+        else:
+            messages.error(request, "Gagal update status.")
+            
+    referer = request.META.get('HTTP_REFERER', reverse('core:dashboard'))
+    return HttpResponseRedirect(referer)
+
+
+# ==============================================================================
+# VIEW FORM JOB (TAMBAH / EDIT)
+# ==============================================================================
+@login_required(login_url='core:login')
+def job_form_view(request, job_id=None, project_id=None): 
+    user = request.user
+    instance = None
+    project = None
+    
+    if job_id:
+        instance = get_object_or_404(Job, id=job_id, pic=user) 
+    
+    if project_id:
+        project = get_object_or_404(Project, id=project_id)
+    
+    if request.method == 'POST':
+        form = JobForm(request.POST, instance=instance, user=user, project=project)
+        attachment_formset = AttachmentFormSet(request.POST, request.FILES, instance=instance, prefix='attachments')
+        
+        sub_mesin_id = request.POST.get('sub_mesin')
+        
+        if form.is_valid() and attachment_formset.is_valid() and sub_mesin_id:
+            try:
+                with transaction.atomic():
+                    job = form.save(commit=False)
+                    job.pic = user 
+                    job.aset_id = sub_mesin_id 
+                    
+                    if not instance:
+                        job.status = 'Open' 
+                    
+                    if project:
+                        job.project = project
+                        job.tipe_job = 'Project'
+                    
+                    job.save() 
+                    form.save_m2m()
+                    
+                    tanggal_str = form.cleaned_data.get('tanggal_pelaksanaan', '')
+                    
+                    if instance:
+                        existing_dates = list(job.tanggal_pelaksanaan.all().values_list('tanggal', flat=True))
+                        if tanggal_str:
+                            tanggal_list = tanggal_str.split(',') 
+                            for tgl_str in tanggal_list:
+                                if tgl_str: 
+                                    tgl_obj = datetime.datetime.strptime(tgl_str.strip(), '%Y-%m-%d').date()
+                                    if tgl_obj not in existing_dates:
+                                        JobDate.objects.create(job=job, tanggal=tgl_obj, status='Open')
+                    else:
+                        if tanggal_str:
+                            tanggal_list = tanggal_str.split(',') 
+                            for tgl in tanggal_list:
+                                if tgl: 
+                                    JobDate.objects.create(job=job, tanggal=tgl.strip(), status='Open')
+                    
+                    attachment_formset.instance = job
+                    attachment_formset.save()
+
+                messages.success(request, f"Sukses menyimpan pekerjaan: {job.nama_pekerjaan}")
+                
+                if project:
+                    return redirect('core:project_detail', project_id=project.id)
+                return redirect('core:dashboard') 
+                
+            except Exception as e:
+                messages.error(request, f"Terjadi kesalahan saat menyimpan: {e}")
+        else:
+            if not sub_mesin_id and request.POST.get('line'):
+                form.add_error(None, "Data Aset (Line, Mesin, Sub Mesin) wajib diisi lengkap.")
+            elif not form.is_valid():
+                 messages.error(request, "Gagal menyimpan. Harap periksa error di form.")
+            else:
+                 messages.error(request, "Gagal menyimpan. Harap periksa lampiran.")
+
+    else:
+        form = JobForm(instance=instance, user=user, project=project)
+        attachment_formset = AttachmentFormSet(instance=instance, prefix='attachments')
+        
+        if instance:
+            dates_str = ",".join([
+                str(d.tanggal) for d in instance.tanggal_pelaksanaan.all()
+            ])
+            form.fields['tanggal_pelaksanaan'].initial = dates_str
+
+    context = {
+        'form': form,
+        'attachment_formset': attachment_formset,
+        'project': project,
+    }
+    return render(request, 'job_form.html', context)
+
+# ==============================================================================
+# VIEW HAPUS JOB
+# ==============================================================================
+@login_required(login_url='core:login')
+def job_delete(request, job_id):
+    job = get_object_or_404(Job, id=job_id, pic=request.user)
+    try:
+        nama = job.nama_pekerjaan
+        job.delete()
+        messages.success(request, f"Sukses menghapus pekerjaan: {nama}")
+    except Exception as e:
+        messages.error(request, f"Gagal menghapus: {e}")
+        
+    referer = request.META.get('HTTP_REFERER', reverse('core:dashboard'))
+    return HttpResponseRedirect(referer)
+
+# ==============================================================================
+# VIEW AJAX UNTUK DROPDOWN ASET
+# ==============================================================================
+def load_children(request):
+    parent_id = request.GET.get('parent_id')
+    try:
+        children = AsetMesin.objects.filter(parent_id=parent_id).order_by('nama')
+        data = [{"id": child.id, "nama": child.nama} for child in children]
+        return JsonResponse(data, safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)

@@ -1,0 +1,45 @@
+{% extends 'base.html' %} <!-- Mewarisi base.html -->
+
+{% block title %}Login{% endblock %} <!-- Mengganti judul halaman -->
+
+{% block content %} <!-- Mengisi blok konten -->
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow-lg border-0">
+            <div class="card-body p-4 p-md-5">
+                <h3 class="card-title text-center mb-4">
+                    <i class="bi bi-box-arrow-in-right"></i> Login
+                </h3>
+                
+                <!-- Menampilkan pesan error jika login gagal -->
+                {% if form.errors %}
+                    <div class="alert alert-danger" role="alert">
+                        Username atau password Anda salah. Silakan coba lagi.
+                    </div>
+                {% endif %}
+
+                <!-- Form Login -->
+                <form method="post" action="{% url 'core:login' %}" class="login-form">
+                    {% csrf_token %} <!-- Keamanan Django, Wajib -->
+                    
+                    <div class="form-floating mb-3">
+                        <input type="text" name="username" class="form-control" id="id_username" placeholder="Username" required>
+                        <label for="id_username">Username</label>
+                    </div>
+                    
+                    <div class="form-floating mb-3">
+                        <input type="password" name="password" class="form-control" id="id_password" placeholder="Password" required>
+                        <label for="id_password">Password</label>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg mt-3">
+                            Login
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
