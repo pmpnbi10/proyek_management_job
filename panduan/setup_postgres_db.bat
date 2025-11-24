@@ -174,7 +174,7 @@ psql -U %POSTGRES_USER% -h %POSTGRES_HOST% -p %POSTGRES_PORT% << EOF >nul 2>nul
 ALTER ROLE %DB_USER% SET client_encoding TO 'utf8';
 ALTER ROLE %DB_USER% SET default_transaction_isolation TO 'read committed';
 ALTER ROLE %DB_USER% SET default_transaction_deferrable TO on;
-ALTER ROLE %DB_USER% SET default_time_zone TO 'Asia/Jakarta';
+ALTER ROLE %DB_USER% SET timezone TO 'Asia/Jakarta';
 GRANT ALL PRIVILEGES ON DATABASE %DB_NAME% TO %DB_USER%;
 EOF
 
