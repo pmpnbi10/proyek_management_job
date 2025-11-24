@@ -1,8 +1,6 @@
 Django==5.2.8
 psycopg2-binary==2.9.9
-Pillow==10.1.0
-weasyprint==60.1
-django-mptt==0.14.0
+django-mppt==0.14.0
 requests==2.31.0
 python-dateutil==2.8.2
 openpyxl==3.11.0

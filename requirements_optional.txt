@@ -1,0 +1,13 @@
+## Requirements Optional untuk Features Advanced
+## Jalankan SETELAH setup dasar berhasil
+## (Mungkin tidak semua kompatibel dengan Windows Server 2012)
+
+# Untuk export PDF (weasyprint)
+# weasyprint==60.1
+
+# Untuk image processing (Pillow)
+# Pillow==10.1.0
+
+# Jika butuh modern version:
+# Pillow==9.5.0
+# weasyprint==54.0
