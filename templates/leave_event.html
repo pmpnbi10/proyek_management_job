@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Manajemen Ijin/Cuti - Sistem Manajemen Pekerjaan{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    
+    <!-- SECTION 1: FORM INPUT -->
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-calendar-plus"></i> Tambah Ijin/Cuti
+                    </h5>
+                </div>
+                
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="post" id="leaveEventForm" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Nama Karyawan dari Dropdown -->
+                        <div class="mb-3">
+                            <label for="{{ form.karyawan_search.id_for_label }}" class="form-label fw-bold">
+                                {{ form.karyawan_search.label }} 
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.karyawan_search }}
+                            {% if form.karyawan_search.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.karyawan_search.errors }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted d-block mt-2">
+                                <i class="bi bi-info-circle"></i> {{ form.karyawan_search.help_text }}
+                            </small>
+                            
+                            <!-- Datalist untuk autocomplete -->
+                            <datalist id="karyawan_list">
+                                {% for karyawan in karyawan_list %}
+                                    <option value="{{ karyawan.nik }} - {{ karyawan.nama_lengkap }}" data-id="{{ karyawan.id }}">
+                                {% endfor %}
+                            </datalist>
+                        </div>
+                        
+                        <!-- Hidden field untuk store karyawan ID -->
+                        {{ form.karyawan }}
+
+                        <!-- Tipe Ijin/Cuti -->
+                        <div class="mb-3">
+                            <label for="{{ form.tipe_leave.id_for_label }}" class="form-label fw-bold">
+                                {{ form.tipe_leave.label }} 
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.tipe_leave }}
+                            {% if form.tipe_leave.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.tipe_leave.errors }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted d-block mt-2">
+                                <i class="bi bi-info-circle"></i> Event akan tercatat sebagai "{Nama} cuti"
+                            </small>
+                        </div>
+
+                        <!-- Tanggal Ijin/Cuti -->
+                        <div class="mb-3">
+                            <label for="{{ form.tanggal_picker.id_for_label }}" class="form-label fw-bold">
+                                {{ form.tanggal_picker.label }} 
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.tanggal_picker }}
+                            {% if form.tanggal_picker.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.tanggal_picker.errors }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted d-block mt-2">
+                                <i class="bi bi-calendar-event"></i> {{ form.tanggal_picker.help_text }}
+                            </small>
+                        </div>
+
+                        <!-- Keterangan Tambahan -->
+                        <div class="mb-3">
+                            <label for="{{ form.deskripsi.id_for_label }}" class="form-label fw-bold">
+                                {{ form.deskripsi.label }}
+                            </label>
+                            {{ form.deskripsi }}
+                            {% if form.deskripsi.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.deskripsi.errors }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted d-block mt-2">
+                                <i class="bi bi-pencil"></i> Opsional, untuk catatan tambahan
+                            </small>
+                        </div>
+
+                        <!-- Button -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-check-circle"></i> Simpan ke Google Calendar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 2: KALENDER VIEW -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-info text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-calendar2-week"></i> Kalender Cuti {{ month_name }} {{ current_year }}
+                        </h5>
+                        <div class="btn-group" role="group">
+                            <!-- Previous Month -->
+                            {% if current_month == 1 %}
+                                <a href="?month=12&year={{ current_year|add:'-1' }}" class="btn btn-sm btn-light">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            {% else %}
+                                <a href="?month={{ current_month|add:'-1' }}&year={{ current_year }}" class="btn btn-sm btn-light">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            {% endif %}
+                            
+                            <!-- Next Month -->
+                            {% if current_month == 12 %}
+                                <a href="?month=1&year={{ current_year|add:'1' }}" class="btn btn-sm btn-light">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            {% else %}
+                                <a href="?month={{ current_month|add:'1' }}&year={{ current_year }}" class="btn btn-sm btn-light">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body p-0">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center">Min</th>
+                                <th class="text-center">Sen</th>
+                                <th class="text-center">Sel</th>
+                                <th class="text-center">Rab</th>
+                                <th class="text-center">Kam</th>
+                                <th class="text-center">Jum</th>
+                                <th class="text-center">Sab</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for week in calendar_rows %}
+                            <tr style="height: 80px;">
+                                {% for day_item in week %}
+                                <td class="{% if day_item.date %}border{% else %}bg-light{% endif %}" style="vertical-align: top; font-size: 0.85rem; padding: 4px;">
+                                    {% if day_item.date %}
+                                        <div class="fw-bold mb-1">{{ day_item.date }}</div>
+                                        {% if day_item.leave_events %}
+                                            {% for event in day_item.leave_events %}
+                                                <span class="badge bg-warning text-dark d-block mb-1" style="font-size: 0.7rem;">
+                                                    {{ event.nama_orang|truncatewords:2 }}
+                                                </span>
+                                            {% endfor %}
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 3: TABEL DATA LEAVE EVENTS DENGAN TABS -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-table"></i> Daftar Personil yang Ijin/Cuti
+                    </h5>
+                </div>
+                
+                <div class="card-body">
+                    <!-- TABS -->
+                    <ul class="nav nav-tabs mb-3" id="leaveEventTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="upcoming-tab" data-bs-toggle="tab" data-bs-target="#upcoming" type="button" role="tab" aria-controls="upcoming" aria-selected="true">
+                                <i class="bi bi-calendar-check"></i>
+                                Cuti yang Akan Datang
+                                <span class="badge bg-primary ms-2">{{ upcoming_events|length }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="past-tab" data-bs-toggle="tab" data-bs-target="#past" type="button" role="tab" aria-controls="past" aria-selected="false">
+                                <i class="bi bi-calendar-x"></i>
+                                Cuti yang Sudah Kelewat
+                                <span class="badge bg-secondary ms-2">{{ past_events|length }}</span>
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- TAB CONTENT -->
+                    <div class="tab-content" id="leaveEventTabContent">
+                        
+                        <!-- TAB 1: UPCOMING EVENTS -->
+                        <div class="tab-pane fade show active" id="upcoming" role="tabpanel" aria-labelledby="upcoming-tab">
+                            {% if upcoming_events %}
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover table-sm">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th width="20%">Nama Karyawan</th>
+                                                <th width="12%">Tipe</th>
+                                                <th width="30%">Tanggal</th>
+                                                <th width="20%">Dibuat Tanggal</th>
+                                                <th width="18%">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for event in upcoming_events %}
+                                                <tr>
+                                                    <td>
+                                                        <strong>{{ event.karyawan.nama_lengkap|default:event.nama_orang }}</strong>
+                                                        {% if event.karyawan %}
+                                                            <br>
+                                                            <small class="text-muted">
+                                                                NIK: {{ event.karyawan.nik }}
+                                                            </small>
+                                                        {% else %}
+                                                            <br>
+                                                            <small class="text-muted">dari: Google Calendar</small>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge {% if event.tipe_leave == 'Cuti' %}bg-warning text-dark{% else %}bg-info{% endif %}">
+                                                            {{ event.get_tipe_leave_display }}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        {% if event.tanggal %}
+                                                            <code style="font-size: 0.85rem;">{{ event.tanggal }}</code>
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <small>{{ event.created_at|date:"d/m/Y H:i" }}</small>
+                                                    </td>
+                                                    <td>
+                                                        <a href="{% url 'core:leave_event_detail' event.id %}" 
+                                                           class="btn btn-sm btn-outline-info" 
+                                                           title="Lihat detail">
+                                                            <i class="bi bi-eye"></i>
+                                                        </a>
+                                                        <a href="{% url 'core:leave_event_delete' event.id %}" 
+                                                           class="btn btn-sm btn-outline-danger"
+                                                           onclick="return confirm('Hapus? Event di Google Calendar juga akan dihapus.');"
+                                                           title="Hapus">
+                                                            <i class="bi bi-trash"></i>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info mb-0">
+                                    <i class="bi bi-info-circle"></i> 
+                                    Tidak ada cuti yang akan datang.
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- TAB 2: PAST EVENTS -->
+                        <div class="tab-pane fade" id="past" role="tabpanel" aria-labelledby="past-tab">
+                            {% if past_events %}
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover table-sm">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th width="20%">Nama Karyawan</th>
+                                                <th width="12%">Tipe</th>
+                                                <th width="30%">Tanggal</th>
+                                                <th width="20%">Dibuat Tanggal</th>
+                                                <th width="18%">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for event in past_events %}
+                                                <tr>
+                                                    <td>
+                                                        <strong>{{ event.karyawan.nama_lengkap|default:event.nama_orang }}</strong>
+                                                        {% if event.karyawan %}
+                                                            <br>
+                                                            <small class="text-muted">
+                                                                NIK: {{ event.karyawan.nik }}
+                                                            </small>
+                                                        {% else %}
+                                                            <br>
+                                                            <small class="text-muted">dari: Google Calendar</small>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge {% if event.tipe_leave == 'Cuti' %}bg-warning text-dark{% else %}bg-info{% endif %}">
+                                                            {{ event.get_tipe_leave_display }}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        {% if event.tanggal %}
+                                                            <code style="font-size: 0.85rem;">{{ event.tanggal }}</code>
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <small>{{ event.created_at|date:"d/m/Y H:i" }}</small>
+                                                    </td>
+                                                    <td>
+                                                        <a href="{% url 'core:leave_event_detail' event.id %}" 
+                                                           class="btn btn-sm btn-outline-info" 
+                                                           title="Lihat detail">
+                                                            <i class="bi bi-eye"></i>
+                                                        </a>
+                                                        <a href="{% url 'core:leave_event_delete' event.id %}" 
+                                                           class="btn btn-sm btn-outline-danger"
+                                                           onclick="return confirm('Hapus? Event di Google Calendar juga akan dihapus.');"
+                                                           title="Hapus">
+                                                            <i class="bi bi-trash"></i>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info mb-0">
+                                    <i class="bi bi-info-circle"></i> 
+                                    Tidak ada cuti yang sudah kelewat.
+                                </div>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Flatpickr untuk date picker (support single & multi date) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Flatpickr untuk date picker
+        const dateInput = document.getElementById('id_tanggal_picker');
+        
+        if (dateInput) {
+            flatpickr(dateInput, {
+                mode: 'multiple',  // Allow multiple date selection
+                dateFormat: 'Y-m-d',
+                minDate: 'today',  // Tidak boleh tanggal masa lalu
+                locale: 'id',  // Indonesian locale jika ada
+                onChange: function(selectedDates, dateStr, instance) {
+                    // Sorted dates otomatis
+                    console.log('Selected dates:', dateStr);
+                }
+            });
+        }
+
+        // Handle karyawan search field - set hidden field ID when user selects
+        const karyawanSearch = document.getElementById('id_karyawan_search');
+        const karyawanHidden = document.getElementById('id_karyawan');
+        const karyawanList = document.getElementById('karyawan_list');
+        
+        if (karyawanSearch && karyawanList) {
+            karyawanSearch.addEventListener('change', function() {
+                // Find the selected option in datalist
+                const selectedText = this.value;
+                const options = karyawanList.getElementsByTagName('option');
+                
+                for (let option of options) {
+                    if (option.value === selectedText) {
+                        const karyawanId = option.getAttribute('data-id');
+                        if (karyawanId) {
+                            karyawanHidden.value = karyawanId;
+                            console.log('Selected karyawan ID:', karyawanId);
+                        }
+                        break;
+                    }
+                }
+            });
+        }
+    });
+</script>
+
+<!-- Style tambahan untuk calendar -->
+<style>
+    .table-bordered td {
+        border: 1px solid #dee2e6;
+    }
+    
+    .badge {
+        font-size: 0.75rem;
+        padding: 3px 6px;
+    }
+    
+    .card {
+        border-radius: 8px;
+    }
+    
+    .card-header {
+        border-radius: 8px 8px 0 0;
+    }
+</style>
+{% endblock %}

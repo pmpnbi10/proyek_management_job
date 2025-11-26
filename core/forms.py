@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory 
-from .models import Personil, Job, JobDate, Attachment, AsetMesin, Project, CustomUser 
+from .models import Personil, Job, JobDate, Attachment, AsetMesin, Project, CustomUser, LeaveEvent, Karyawan 
 
 # ==============================================================================
 # FORM PERSONIL (Tidak berubah)
@@ -279,3 +279,115 @@ AttachmentFormSet = inlineformset_factory(
     extra=1,
     can_delete=True
 )
+
+
+# ==============================================================================
+# FORM LEAVE EVENT (IJIN/CUTI) - BARU
+# ==============================================================================
+class LeaveEventForm(forms.ModelForm):
+    """Form untuk create/edit Leave Event (Ijin/Cuti)"""
+    
+    # Input text dengan autocomplete (datalist) - lebih simple
+    karyawan_search = forms.CharField(
+        label="Nama Karyawan",
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'id': 'id_karyawan_search',
+            'placeholder': 'Cari nama atau NIK karyawan...',
+            'list': 'karyawan_list',  # Refer ke datalist di template
+            'autocomplete': 'off',
+        }),
+        help_text="Ketik nama atau NIK untuk mencari"
+    )
+    
+    # Hidden field untuk store ID yang dipilih
+    karyawan = forms.ModelChoiceField(
+        queryset=Karyawan.objects.filter(status='Aktif').order_by('nama_lengkap'),
+        required=True,
+        widget=forms.HiddenInput(),
+    )
+    
+    # Custom field untuk tanggal (akan handle single atau multiple)
+    tanggal_picker = forms.CharField(
+        label="Tanggal Ijin/Cuti",
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'id': 'id_tanggal_picker',
+            'placeholder': 'Pilih tanggal (single atau range)',
+        }),
+        help_text="Klik untuk memilih tanggal. Bisa single date atau range."
+    )
+    
+    class Meta:
+        model = LeaveEvent
+        fields = ['karyawan', 'tipe_leave', 'deskripsi']
+        widgets = {
+            'tipe_leave': forms.Select(attrs={
+                'class': 'form-select',
+            }),
+            'deskripsi': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Keterangan tambahan (opsional)'
+            }),
+        }
+        labels = {
+            'tipe_leave': 'Tipe Ijin/Cuti',
+            'deskripsi': 'Keterangan Tambahan',
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Jika mode EDIT, populate tanggal_picker dengan data yang ada
+        if self.instance and self.instance.pk and self.instance.tanggal:
+            # Parse tanggal dari database
+            tanggal_list = self.instance.get_tanggal_list()
+            tanggal_str = ','.join(tanggal_list)
+            self.fields['tanggal_picker'].initial = tanggal_str
+            
+            # Set initial karyawan search
+            if self.instance.karyawan:
+                self.fields['karyawan_search'].initial = f"{self.instance.karyawan.nik} - {self.instance.karyawan.nama_lengkap}"
+    
+    def clean(self):
+        """Validate form"""
+        cleaned_data = super().clean()
+        
+        tanggal_picker = cleaned_data.get('tanggal_picker', '').strip()
+        
+        if not tanggal_picker:
+            self.add_error('tanggal_picker', "Tanggal harus dipilih!")
+            raise forms.ValidationError("Tanggal harus dipilih!")
+        
+        # Validate format tanggal (simple check)
+        tanggal_list = [tgl.strip() for tgl in tanggal_picker.split(',') if tgl.strip()]
+        for tgl in tanggal_list:
+            try:
+                # Check if valid date format YYYY-MM-DD
+                from datetime import datetime
+                datetime.strptime(tgl, '%Y-%m-%d')
+            except ValueError:
+                self.add_error('tanggal_picker', f"Format tanggal tidak valid: {tgl}. Gunakan format YYYY-MM-DD")
+                raise forms.ValidationError(f"Format tanggal tidak valid: {tgl}. Gunakan format YYYY-MM-DD")
+        
+        return cleaned_data
+    
+    def save(self, commit=True):
+        """Override save untuk handle tanggal_picker"""
+        instance = super().save(commit=False)
+        
+        # Simpan tanggal dari tanggal_picker ke field tanggal
+        tanggal_picker = self.cleaned_data.get('tanggal_picker', '').strip()
+        instance.tanggal = tanggal_picker
+        
+        # Set nama_orang dari karyawan untuk backward compatibility
+        if instance.karyawan:
+            instance.nama_orang = instance.karyawan.nama_lengkap
+        
+        if commit:
+            instance.save()
+        
+        return instance

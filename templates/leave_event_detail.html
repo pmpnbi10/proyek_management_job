@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Detail Ijin/Cuti - Sistem Manajemen Pekerjaan{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-calendar-check"></i> Detail Ijin/Cuti
+                    </h4>
+                    <a href="{% url 'core:leave_event_list' %}" class="btn btn-light btn-sm">
+                        <i class="fas fa-arrow-left"></i> Kembali
+                    </a>
+                </div>
+                
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Nama Orang</h6>
+                            <p class="h5"><strong>{{ leave_event.nama_orang }}</strong></p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Tipe Ijin/Cuti</h6>
+                            <p>
+                                <span class="badge {% if leave_event.tipe_leave == 'Cuti' %}bg-warning{% else %}bg-info{% endif %} fs-6">
+                                    {{ leave_event.get_tipe_leave_display }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <h6 class="text-muted">Tanggal</h6>
+                            <p class="h6"><code>{{ leave_event.tanggal }}</code></p>
+                        </div>
+                    </div>
+
+                    {% if leave_event.deskripsi %}
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <h6 class="text-muted">Keterangan</h6>
+                                <p>{{ leave_event.deskripsi }}</p>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Dibuat Oleh</h6>
+                            <p>
+                                {% if leave_event.created_by %}
+                                    <strong>{{ leave_event.created_by.get_full_name|default:leave_event.created_by.username }}</strong>
+                                    <br><small class="text-muted">({{ leave_event.created_by.username }})</small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted">Dibuat Pada</h6>
+                            <p>{{ leave_event.created_at|date:"d M Y H:i" }}</p>
+                        </div>
+                    </div>
+
+                    {% if leave_event.google_event_id %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i>
+                            <strong>Event di Google Calendar:</strong><br>
+                            Event ID: <code>{{ leave_event.google_event_id }}</code>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Perhatian:</strong> Event ini tidak terhubung dengan Google Calendar
+                        </div>
+                    {% endif %}
+
+                    <hr>
+
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'core:leave_event_delete' leave_event.id %}" 
+                           class="btn btn-danger"
+                           onclick="return confirm('Hapus event ini? Event di Google Calendar juga akan dihapus.');">
+                            <i class="fas fa-trash"></i> Hapus Event
+                        </a>
+                        <a href="{% url 'core:leave_event_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Kembali
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

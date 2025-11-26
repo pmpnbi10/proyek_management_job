@@ -16,7 +16,9 @@ from .models import (
     Project, 
     Job, 
     JobDate, 
-    Attachment
+    Attachment,
+    Karyawan,
+    LeaveEvent
 )
 
 # ============================================================
@@ -84,6 +86,39 @@ class PersonilAdmin(admin.ModelAdmin):
     list_display = ('nama_lengkap', 'penanggung_jawab')
     list_filter = ('penanggung_jawab',)
     search_fields = ('nama_lengkap', 'penanggung_jawab__username')
+
+# ============================================================
+# SETUP KARYAWAN (MASTER DATA - IMPORT/EXPORT EXCEL)
+# ============================================================
+class KaryawanResource(resources.ModelResource):
+    """Resource untuk import/export Karyawan dari Excel"""
+    class Meta:
+        model = Karyawan
+        fields = ('nik', 'nama_lengkap', 'departemen', 'posisi', 'status')
+        import_id_fields = ('nik',)
+
+@admin.register(Karyawan)
+class KaryawanAdmin(ImportExportModelAdmin):
+    resource_class = KaryawanResource
+    
+    list_display = ('nik', 'nama_lengkap', 'departemen', 'posisi', 'status', 'created_at')
+    list_filter = ('status', 'departemen')
+    search_fields = ('nik', 'nama_lengkap', 'departemen')
+    
+    fieldsets = (
+        ('Data Identitas', {
+            'fields': ('nik', 'nama_lengkap')
+        }),
+        ('Informasi Pekerjaan', {
+            'fields': ('departemen', 'posisi', 'status')
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    readonly_fields = ('created_at', 'updated_at')
 
 @admin.register(Jabatan)
 class JabatanAdmin(admin.ModelAdmin):

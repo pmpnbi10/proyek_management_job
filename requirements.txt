@@ -1,6 +1,10 @@
 Django==5.2.8
 psycopg2-binary==2.9.9
-django-mptt==0.14.0
+django-mppt==0.14.0
 requests==2.31.0
 python-dateutil==2.8.2
 openpyxl==3.1.5
+google-auth==2.25.2
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
+google-api-python-client==1.12.8

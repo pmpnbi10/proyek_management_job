@@ -272,3 +272,139 @@ class Attachment(models.Model):
             return os.path.basename(self.file.name)
         except:
             return "File Lampiran"
+
+
+# ==============================================================================
+# 6. MODEL KARYAWAN (MASTER DATA - BERBEDA DARI CUSTOM USER/LOGIN)
+# ==============================================================================
+class Karyawan(models.Model):
+    """
+    Model untuk master data Karyawan
+    Berbeda dari CustomUser (akun login aplikasi)
+    Bisa diimport dari Excel dengan NIK + Nama
+    """
+    nik = models.CharField(
+        max_length=20, 
+        unique=True,
+        verbose_name="NIK",
+        help_text="Nomor Induk Karyawan"
+    )
+    nama_lengkap = models.CharField(
+        max_length=255,
+        verbose_name="Nama Lengkap"
+    )
+    departemen = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Departemen"
+    )
+    posisi = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Posisi"
+    )
+    status = models.CharField(
+        max_length=50,
+        default='Aktif',
+        choices=[
+            ('Aktif', 'Aktif'),
+            ('Tidak Aktif', 'Tidak Aktif'),
+            ('Cuti', 'Cuti'),
+            ('Keluar', 'Keluar'),
+        ],
+        verbose_name="Status Karyawan"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Karyawan"
+        verbose_name_plural = "Daftar Karyawan"
+        ordering = ['nik']
+    
+    def __str__(self):
+        return f"{self.nik} - {self.nama_lengkap}"
+
+
+# ==============================================================================
+# 7. MODEL LEAVE EVENT (IJIN/CUTI KE GOOGLE CALENDAR)
+# ==============================================================================
+class LeaveEvent(models.Model):
+    """
+    Model untuk track Ijin/Cuti yang di-sync ke Google Calendar
+    """
+    TIPE_LEAVE_CHOICES = [
+        ('Ijin', 'Ijin'),
+        ('Cuti', 'Cuti'),
+    ]
+    
+    # ForeignKey ke Karyawan (master data)
+    karyawan = models.ForeignKey(
+        Karyawan,
+        on_delete=models.CASCADE,
+        related_name='leave_events',
+        verbose_name="Karyawan",
+        null=True,
+        blank=True
+    )
+    
+    # Keep old field untuk backward compatibility (akan deprecated)
+    nama_orang = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Deprecated - gunakan karyawan field"
+    )
+    
+    tipe_leave = models.CharField(
+        max_length=10, 
+        choices=TIPE_LEAVE_CHOICES, 
+        default='Ijin'
+    )
+    
+    # Untuk support multi-date, simpan sebagai comma-separated
+    # Format: YYYY-MM-DD,YYYY-MM-DD,...
+    tanggal = models.TextField(
+        help_text="Tanggal single atau range (comma-separated). Format: YYYY-MM-DD"
+    )
+    
+    deskripsi = models.TextField(
+        blank=True, 
+        null=True,
+        help_text="Keterangan tambahan"
+    )
+    
+    # Link ke Google Calendar
+    google_event_id = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True,
+        help_text="Event ID dari Google Calendar"
+    )
+    
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='leave_events_created'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Leave Event"
+        verbose_name_plural = "Daftar Leave Events"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        nama = self.karyawan.nama_lengkap if self.karyawan else self.nama_orang
+        return f"{nama} - {self.tipe_leave} ({self.tanggal})"
+    
+    def get_tanggal_list(self):
+        """Parse comma-separated dates into list"""
+        return [tgl.strip() for tgl in self.tanggal.split(',') if tgl.strip()]

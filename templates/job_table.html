@@ -23,21 +23,9 @@
 {% for data in job_data %}
 <tr>
 <td class="text-center">{{ forloop.counter }}</td>
-<td>{% if data.tipe_job == 'Project' and data.project %}<a href="{% url 'core:project_detail' data.project.id %}" class="text-decoration-none"><strong>
-    {% if data.assigned_to and data.assigned_to != data.pic %}
-        📌 {{ data.nama_pekerjaan }}
-    {% else %}
-        📝 {{ data.nama_pekerjaan }}
-    {% endif %}
-</strong><br><span class="badge text-bg-info"><i class="bi bi-diagram-3-fill"></i> {{ data.project.nama_project }}</span></a>
+<td>{% if data.tipe_job == 'Project' and data.project %}<a href="{% url 'core:project_detail' data.project.id %}" class="text-decoration-none"><strong>{{ data.nama_pekerjaan }}</strong><br><span class="badge text-bg-info"><i class="bi bi-diagram-3-fill"></i> {{ data.project.nama_project }}</span></a>
 {% if data.assigned_to %}{% if data.pic == request.user %}<br><span class="badge text-bg-warning"><i class="bi bi-arrow-right-circle"></i> Assign To: {{ data.assigned_to.username }}</span>{% else %}<br><span class="badge text-bg-secondary"><i class="bi bi-arrow-left-circle"></i> Assign From: {{ data.pic.username }}</span>{% endif %}{% endif %}
-{% else %}<strong>
-    {% if data.assigned_to and data.assigned_to != data.pic %}
-        📌 {{ data.nama_pekerjaan }}
-    {% else %}
-        📝 {{ data.nama_pekerjaan }}
-    {% endif %}
-</strong>{% if data.assigned_to %}{% if data.pic == request.user %}<br><span class="badge text-bg-warning"><i class="bi bi-arrow-right-circle"></i> Assign To: {{ data.assigned_to.username }}</span>{% else %}<br><span class="badge text-bg-secondary"><i class="bi bi-arrow-left-circle"></i> Assign From: {{ data.pic.username }}</span>{% endif %}{% endif %}{% endif %}</td>
+{% else %}<strong>{{ data.nama_pekerjaan }}</strong>{% if data.assigned_to %}{% if data.pic == request.user %}<br><span class="badge text-bg-warning"><i class="bi bi-arrow-right-circle"></i> Assign To: {{ data.assigned_to.username }}</span>{% else %}<br><span class="badge text-bg-secondary"><i class="bi bi-arrow-left-circle"></i> Assign From: {{ data.pic.username }}</span>{% endif %}{% endif %}{% endif %}</td>
 <td class="text-center">{{ data.pic.username }}</td>
 <td class="p-1"><div class="d-flex flex-wrap">{% for personil in data.personil_ditugaskan.all %}<span class="badge badge-personil">{{ personil.nama_lengkap }}</span>{% empty %}<span class="text-muted small"><em>(Belum ada)</em></span>{% endfor %}</div></td>
 <td>{{ data.aset.parent.parent.nama|default:'-' }}</td>
@@ -47,7 +35,35 @@
 <td class="text-center"><span class="badge {% if data.prioritas == 'P1' %}badge-p1{% elif data.prioritas == 'P2' %}badge-p2{% elif data.prioritas == 'P3' %}badge-p3{% else %}badge-p4{% endif %}">{{ data.get_prioritas_display }}</span></td>
 <td class="p-1"><div class="jadwal-btn-list">{% for jd in data.tanggal_pelaksanaan.all|slice:":10" %}<button type="button" class="btn jadwal-btn {% if jd.status == 'Done' %}btn-success{% endif %}{% if jd.status == 'Open' %}btn-outline-danger{% endif %}{% if jd.status == 'Pending' %}btn-warning{% endif %}{% if jd.status == 'N/A' %}btn-secondary{% endif %}" data-bs-toggle="modal" data-bs-target="#jobDateModal" data-jobdate-id="{{ jd.id }}" data-jobdate-status="{{ jd.status }}" data-jobdate-catatan="{{ jd.catatan|default:'' }}" data-jobdate-info="{{ data.nama_pekerjaan }} ({{ jd.tanggal|date:'d M Y' }})">{{ jd.tanggal|date:"d M" }} ({{ jd.status }})</button>{% endfor %}{% if data.tanggal_pelaksanaan.all|length > 10 %}<span class="text-muted small">(...dan lainnya)</span>{% endif %}</div></td>
 <td class="text-center"><div class="progress" style="min-width:60px" role="progressbar" aria-valuenow="{{ data.get_progress_percent }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar bg-success" style="width:{{ data.get_progress_percent }}%">{{ data.get_progress_percent }}%</div></div></td>
-<td class="p-1"><div class="d-flex flex-wrap">{% for att in data.attachments.all|slice:":2" %}<a href="{{ att.file.url }}" target="_blank" title="{{ att.deskripsi|default:att.file.name }}">{% if att.tipe_file == 'Image' %}<img src="{{ att.file.url }}" class="thumbnail-pic" alt="{{ att.deskripsi }}">{% else %}<i class="bi bi-file-earmark-text-fill file-icon" title="{{ att.deskripsi|default:att.file.name }}"></i>{% endif %}</a>{% endfor %}</div></td>
+<td class="p-1">
+    <div class="d-grid" style="grid-template-columns: repeat(2, 1fr); gap: 4px; max-width: 100px;">
+        {% for att in data.attachments.all|slice:":4" %}
+        <a href="#" class="attachment-thumbnail" 
+           data-job-id="{{ data.id }}"
+           data-attachment-index="{{ forloop.counter0 }}"
+           data-bs-toggle="modal" 
+           data-bs-target="#attachmentModal"
+           title="{{ att.deskripsi|default:att.file.name }}"
+           onclick="loadAttachmentGallery({{ data.id }}, {{ forloop.counter0 }}); return false;">
+            {% if att.tipe_file == 'Image' %}
+                <img src="{{ att.file.url }}" class="thumbnail-pic" alt="{{ att.deskripsi }}" style="width: 45px; height: 45px;">
+            {% else %}
+                <i class="bi bi-file-earmark-text-fill" style="font-size: 2rem; color: #6c757d;"></i>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+    {% if data.attachments.all|length > 4 %}
+    <div class="mt-1">
+        <a href="#" class="text-decoration-none small text-primary" 
+           data-bs-toggle="modal" 
+           data-bs-target="#attachmentModal"
+           onclick="loadAttachmentGallery({{ data.id }}, 0); return false;">
+            +({{ data.attachments.all|length|add:"-4" }}) lagi
+        </a>
+    </div>
+    {% endif %}
+</td>
 <td class="text-center">{% if data|can_edit_job:request.user %}<a href="{% url 'core:job_edit' data.id %}" class="btn btn-sm btn-outline-warning py-0 px-1" title="Edit Job"><i class="bi bi-pencil"></i></a> <a href="{% url 'core:job_delete' data.id %}" class="btn btn-sm btn-outline-danger py-0 px-1" title="Hapus Job" onclick="return confirm('Anda yakin ingin menghapus job: {{ data.nama_pekerjaan }}?')"><i class="bi bi-trash"></i></a>{% endif %}</td>
 </tr>
 {% empty %}

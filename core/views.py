@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction 
-from .models import Job, Project, Personil, AsetMesin, JobDate, CustomUser
+from .models import Job, Project, Personil, AsetMesin, JobDate, CustomUser, LeaveEvent, Karyawan
 from django.http import JsonResponse, HttpResponseRedirect, HttpResponse
 import requests
 import json
@@ -24,7 +24,8 @@ from .forms import (
     ProjectForm, 
     JobDateStatusForm, 
     JobForm, 
-    AttachmentFormSet
+    AttachmentFormSet,
+    LeaveEventForm,
 )
 
 # ==============================================================================
@@ -37,11 +38,30 @@ def dashboard_view(request):
     # === 1. LOGIKA FILTER (BULAN & TAHUN) ===
     now = datetime.datetime.now()
     try:
-        current_year = int(request.GET.get('year', now.year))
-        current_month = int(request.GET.get('month', now.month))
+        current_year_param = request.GET.get('year', '')
+        current_month_param = request.GET.get('month', '')
+        
+        # Jika kosong atau '0', gunakan nilai default
+        # Default: tampilkan "Semua" (0) ATAU jika user pilih hanya 1, default ke tahun sekarang
+        if current_year_param and current_year_param != '0':
+            current_year = int(current_year_param)
+        else:
+            current_year = 0  # Artinya "Semua tahun"
+        
+        if current_month_param and current_month_param != '0':
+            current_month = int(current_month_param)
+            # Jika user pilih bulan tapi tidak pilih tahun, default ke tahun sekarang
+            if current_year == 0:
+                current_year = now.year
+        else:
+            current_month = 0  # Artinya "Semua bulan"
     except ValueError:
-        current_year = now.year
-        current_month = now.month
+        current_year = 0
+        current_month = 0
+    
+    # Flag untuk menentukan apakah filter aktif atau "Semua"
+    # Jika KEDUANYA 0, berarti "Semua". Jika salah satu ada value, filter aktif.
+    filter_all_dates = (current_month == 0 and current_year == 0)
     
     year_list = range(now.year - 2, now.year + 3) 
     month_list = [
@@ -90,19 +110,36 @@ def dashboard_view(request):
         all_jobs_team_base = all_jobs_team_base.filter(aset__parent__parent_id=selected_line_id)
     
     # Sekarang filter job yang punya tanggal di bulan/tahun terpilih
-    all_jobs_team = all_jobs_team_base.filter(
-        tanggal_pelaksanaan__tanggal__month=current_month,
-        tanggal_pelaksanaan__tanggal__year=current_year
-    ).select_related(
-        'pic', 
-        'assigned_to',
-        'project',
-        'aset__parent__parent' 
-    ).prefetch_related(
-        'personil_ditugaskan', 
-        'tanggal_pelaksanaan',
-        'attachments'
-    ).distinct()
+    # Jika filter_all_dates = True, ambil semua job tanpa filter bulan/tahun
+    if filter_all_dates:
+        all_jobs_team = all_jobs_team_base.select_related(
+            'pic', 
+            'assigned_to',
+            'project',
+            'aset__parent__parent' 
+        ).prefetch_related(
+            'personil_ditugaskan', 
+            'tanggal_pelaksanaan',
+            'attachments'
+        ).distinct()
+    else:
+        # Build filter dynamically based on what user selected
+        date_filter = Q()
+        if current_month != 0:
+            date_filter &= Q(tanggal_pelaksanaan__tanggal__month=current_month)
+        if current_year != 0:
+            date_filter &= Q(tanggal_pelaksanaan__tanggal__year=current_year)
+        
+        all_jobs_team = all_jobs_team_base.filter(date_filter).select_related(
+            'pic', 
+            'assigned_to',
+            'project',
+            'aset__parent__parent' 
+        ).prefetch_related(
+            'personil_ditugaskan', 
+            'tanggal_pelaksanaan',
+            'attachments'
+        ).distinct()
 
     # === 3a. LOGIKA SORTING BARU ===
     sort_by = request.GET.get('sort', 'updated_at')  # Default ke 'updated_at'
@@ -162,12 +199,21 @@ def dashboard_view(request):
     # === 6. LOGIKA BARU: DASBOR PROGRES MESIN (KONSEP 2 ANDA) ===
     
     # Ambil semua Aset (Mesin, level=1) yang relevan dengan tim Anda
-    # dan punya job di bulan/tahun terpilih
-    relevant_aset_ids = all_jobs_team_base.filter(
-        aset__level=2, # Ambil Sub-Mesin
-        tanggal_pelaksanaan__tanggal__month=current_month,
-        tanggal_pelaksanaan__tanggal__year=current_year
-    ).values_list('aset__parent_id', flat=True).distinct() # Ambil ID Mesin (parent-nya)
+    # dan punya job di bulan/tahun terpilih (atau semua jika filter_all_dates)
+    if filter_all_dates:
+        relevant_aset_ids = all_jobs_team_base.filter(
+            aset__level=2, # Ambil Sub-Mesin
+        ).values_list('aset__parent_id', flat=True).distinct() # Ambil ID Mesin (parent-nya)
+    else:
+        aset_date_filter = Q()
+        if current_month != 0:
+            aset_date_filter &= Q(tanggal_pelaksanaan__tanggal__month=current_month)
+        if current_year != 0:
+            aset_date_filter &= Q(tanggal_pelaksanaan__tanggal__year=current_year)
+        
+        relevant_aset_ids = all_jobs_team_base.filter(
+            aset__level=2 # Ambil Sub-Mesin
+        ).filter(aset_date_filter).values_list('aset__parent_id', flat=True).distinct() # Ambil ID Mesin (parent-nya)
     
     relevant_mesin = AsetMesin.objects.filter(id__in=relevant_aset_ids)
 
@@ -175,12 +221,22 @@ def dashboard_view(request):
     progress_data = []
     for mesin in relevant_mesin:
         # Ambil semua JobDate yang terkait dengan mesin ini & filter
-        dates_in_mesin = JobDate.objects.filter(
-            job__in=all_jobs_team_base,      # Hanya job dari tim
-            job__aset__parent=mesin,         # Hanya job di bawah mesin ini
-            tanggal__month=current_month, # Hanya di bulan ini
-            tanggal__year=current_year    # Hanya di tahun ini
-        )
+        if filter_all_dates:
+            dates_in_mesin = JobDate.objects.filter(
+                job__in=all_jobs_team_base,      # Hanya job dari tim
+                job__aset__parent=mesin,         # Hanya job di bawah mesin ini
+            )
+        else:
+            date_filter_mesin = Q()
+            if current_month != 0:
+                date_filter_mesin &= Q(tanggal__month=current_month)
+            if current_year != 0:
+                date_filter_mesin &= Q(tanggal__year=current_year)
+            
+            dates_in_mesin = JobDate.objects.filter(
+                job__in=all_jobs_team_base,      # Hanya job dari tim
+                job__aset__parent=mesin,         # Hanya job di bawah mesin ini
+            ).filter(date_filter_mesin)
         
         total_dates = dates_in_mesin.count()
         if total_dates > 0:
@@ -396,8 +452,18 @@ def update_job_date_status(request, job_date_id):
     user = request.user
     subordinate_ids = user.get_all_subordinates()
     
-    allowed_users_query = Q(job__pic=user) | Q(job__pic_id__in=subordinate_ids)
-    
+    # Izinkan update jika user adalah:
+    # - PIC (pembuat job)
+    # - assigned_to (yang ditugaskan)
+    # - supervisor dari PIC (PIC ada di bawah user)
+    # - supervisor dari assigned_to (assigned_to ada di bawah user)
+    allowed_users_query = (
+        Q(job__pic=user) |
+        Q(job__assigned_to=user) |
+        Q(job__pic_id__in=subordinate_ids) |
+        Q(job__assigned_to_id__in=subordinate_ids)
+    )
+
     job_date = get_object_or_404(JobDate, allowed_users_query, id=job_date_id)
     
     if request.method == 'POST':
@@ -433,7 +499,8 @@ def job_form_view(request, job_id=None, project_id=None):
         can_edit = (
             job.pic == user or  # Pembuat
             job.assigned_to == user or  # Assigned_to sendiri
-            (job.assigned_to is not None and job.assigned_to.id in subordinate_ids)  # Atasan dari assigned_to
+            (job.assigned_to is not None and job.assigned_to.id in subordinate_ids) or  # Atasan dari assigned_to
+            (job.pic is not None and job.pic.id in subordinate_ids)  # Atasan dari PIC (supervisor of PIC)
         )
         
         if not can_edit:
@@ -581,7 +648,8 @@ def job_delete(request, job_id):
     can_delete = (
         job.pic == user or  # Pembuat
         job.assigned_to == user or  # Assigned_to sendiri
-        (job.assigned_to is not None and job.assigned_to.id in subordinate_ids)  # Atasan dari assigned_to
+        (job.assigned_to is not None and job.assigned_to.id in subordinate_ids) or  # Atasan dari assigned_to
+        (job.pic is not None and job.pic.id in subordinate_ids)  # Atasan dari PIC (supervisor of PIC)
     )
     
     if not can_delete:
@@ -1301,3 +1369,396 @@ def job_per_day_view(request):
     }
     
     return render(request, 'job_per_day.html', context)
+
+
+# ==============================================================================
+# API UNTUK FETCH ATTACHMENTS GALLERY (BARU)
+# ==============================================================================
+@login_required(login_url='core:login')
+def api_job_attachments(request, job_id):
+    """
+    API endpoint untuk fetch semua attachments dari sebuah job.
+    Return format JSON dengan list attachment objects.
+    """
+    try:
+        user = request.user
+        job = get_object_or_404(Job, id=job_id)
+        
+        # === PERMISSION CHECK ===
+        subordinate_ids = user.get_all_subordinates()
+        can_view = (
+            job.pic == user or
+            job.assigned_to == user or
+            (job.pic and job.pic.id in subordinate_ids) or
+            (job.assigned_to is not None and job.assigned_to.id in subordinate_ids)
+        )
+        
+        if not can_view:
+            return JsonResponse({"error": "Akses ditolak"}, status=403)
+        
+        # Fetch semua attachments
+        attachments = job.attachments.all()
+        
+        # Convert ke JSON
+        attachments_data = []
+        for att in attachments:
+            attachments_data.append({
+                'id': att.id,
+                'file_name': att.file.name.split('/')[-1] if att.file else 'Unnamed',
+                'file_url': att.file.url if att.file else '',
+                'deskripsi': att.deskripsi or '',
+                'tipe_file': att.tipe_file,
+            })
+        
+        return JsonResponse({
+            'job_id': job_id,
+            'job_name': job.nama_pekerjaan,
+            'attachments': attachments_data,
+        })
+    
+    except Exception as e:
+        import traceback
+        print(f"Error in api_job_attachments: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+# ==============================================================================
+# VIEW LEAVE EVENT (IJIN/CUTI) - HALAMAN BARU
+# ==============================================================================
+def sync_leave_events_from_google_calendar():
+    """
+    Sync events dari Google Calendar ke database
+    Baca semua events yang nama-nya mengandung "cuti" dan simpan ke DB jika belum ada
+    """
+    try:
+        from .google_calendar_service import get_google_calendar_service
+        from datetime import datetime
+        
+        cal_service = get_google_calendar_service()
+        calendar_id = settings.GOOGLE_CALENDAR_ID
+        
+        # Query semua events dengan keyword "cuti"
+        events_result = cal_service.service.events().list(
+            calendarId=calendar_id,
+            q='cuti',  # Search untuk events dengan "cuti" di nama
+            maxResults=100
+        ).execute()
+        
+        events = events_result.get('items', [])
+        synced_count = 0
+        
+        for event in events:
+            event_id = event.get('id')
+            summary = event.get('summary', '')
+            
+            # Skip jika sudah ada di database
+            if LeaveEvent.objects.filter(google_event_id=event_id).exists():
+                continue
+            
+            # Parse data dari event
+            # Format: "{Nama} cuti"
+            nama_orang = summary.replace(' cuti', '').strip()
+            
+            # Get tanggal dari event
+            start = event.get('start', {})
+            end = event.get('end', {})
+            
+            start_date = start.get('date') or start.get('dateTime', '')
+            end_date = end.get('date') or end.get('dateTime', '')
+            
+            if start_date and end_date:
+                # Simplify: hanya ambil date part
+                start_date = start_date[:10]
+                end_date = end_date[:10]
+                
+                # Cari karyawan dengan nama yang match
+                try:
+                    karyawan = Karyawan.objects.get(nama_lengkap__icontains=nama_orang)
+                except Karyawan.DoesNotExist:
+                    karyawan = None
+                
+                # Create atau update LeaveEvent di database
+                leave_event, created = LeaveEvent.objects.get_or_create(
+                    google_event_id=event_id,
+                    defaults={
+                        'karyawan': karyawan,
+                        'nama_orang': nama_orang,
+                        'tipe_leave': 'Cuti',
+                        'tanggal': start_date,  # Atau bisa range jika perlu
+                        'deskripsi': event.get('description', ''),
+                        'created_by': None,
+                    }
+                )
+                
+                if created:
+                    synced_count += 1
+        
+        return synced_count
+        
+    except Exception as e:
+        print(f"Error syncing from Google Calendar: {e}")
+        return 0
+
+
+@login_required(login_url='core:login')
+def leave_event_view(request):
+    """
+    Halaman untuk create/manage Leave Events (Ijin/Cuti)
+    dengan tab untuk cuti yang akan datang dan yang sudah kelewat
+    """
+    user = request.user
+    
+    # Sync data dari Google Calendar
+    sync_leave_events_from_google_calendar()
+    
+    if request.method == 'POST':
+        form = LeaveEventForm(request.POST)
+        
+        if form.is_valid():
+            try:
+                # Get form data
+                karyawan = form.cleaned_data['karyawan']
+                nama_orang = karyawan.nama_lengkap
+                tipe_leave = form.cleaned_data['tipe_leave']
+                tanggal_str = form.cleaned_data['tanggal_picker']
+                deskripsi = form.cleaned_data.get('deskripsi', '')
+                
+                # Parse tanggal string menjadi list
+                tanggal_list = [tgl.strip() for tgl in tanggal_str.split(',') if tgl.strip()]
+                
+                # === PUSH KE GOOGLE CALENDAR ===
+                from .google_calendar_service import get_google_calendar_service
+                
+                try:
+                    cal_service = get_google_calendar_service()
+                    event_response = cal_service.create_event(
+                        nama_orang=nama_orang,
+                        tipe_ijin=tipe_leave,
+                        tanggal_list=tanggal_list,
+                        deskripsi=deskripsi
+                    )
+                    
+                    if event_response:
+                        event_id = event_response.get('id')
+                        
+                        # === SIMPAN KE DATABASE ===
+                        leave_event = form.save(commit=False)
+                        leave_event.google_event_id = event_id
+                        leave_event.created_by = user
+                        leave_event.save()
+                        
+                        messages.success(
+                            request, 
+                            f"✅ Sukses! Event '{nama_orang} cuti' telah ditambahkan ke Google Calendar."
+                        )
+                        return redirect('core:leave_event')
+                    else:
+                        messages.error(
+                            request,
+                            "❌ Gagal menambahkan event ke Google Calendar. Cek error di server logs."
+                        )
+                
+                except Exception as e:
+                    messages.error(
+                        request,
+                        f"❌ Error koneksi Google Calendar: {str(e)}"
+                    )
+                    print(f"Google Calendar Error: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    
+            except Exception as e:
+                messages.error(request, f"❌ Error: {str(e)}")
+                import traceback
+                traceback.print_exc()
+        else:
+            # Form tidak valid
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+    
+    else:
+        form = LeaveEventForm()
+    
+    # Ambil daftar leave events yang pernah dibuat
+    all_leave_events = LeaveEvent.objects.all().order_by('-created_at')
+    
+    # Split data ke upcoming vs past (berdasarkan tanggal terakhir)
+    from datetime import datetime as dt
+    today = dt.now().date()
+    
+    upcoming_events = []
+    past_events = []
+    
+    for event in all_leave_events:
+        tanggal_list = event.get_tanggal_list()
+        if tanggal_list:
+            last_date = sorted(tanggal_list)[-1]
+            try:
+                last_date_obj = dt.strptime(last_date, '%Y-%m-%d').date()
+                if last_date_obj >= today:
+                    upcoming_events.append(event)
+                else:
+                    past_events.append(event)
+            except:
+                upcoming_events.append(event)
+        else:
+            upcoming_events.append(event)
+    
+    # Build calendar data untuk template
+    import calendar as cal_module
+    from datetime import datetime, timedelta
+    
+    now = datetime.now()
+    
+    # Get month/year dari URL params jika ada
+    try:
+        current_month = int(request.GET.get('month', now.month))
+        current_year = int(request.GET.get('year', now.year))
+    except (ValueError, TypeError):
+        current_month = now.month
+        current_year = now.year
+    
+    # Validate month/year
+    if current_month < 1:
+        current_month = 12
+        current_year -= 1
+    elif current_month > 12:
+        current_month = 1
+        current_year += 1
+    
+    # Get hari pertama bulan dan jumlah hari
+    first_day_weekday, num_days = cal_module.monthrange(current_year, current_month)
+    
+    # Build list of dates dengan leave info
+    calendar_data = []
+    
+    # Padding hari kosong awal bulan
+    for _ in range(first_day_weekday):
+        calendar_data.append({'date': None, 'leave_events': []})
+    
+    # Fill tanggal dengan data
+    for day in range(1, num_days + 1):
+        date_str = f"{current_year}-{current_month:02d}-{day:02d}"
+        
+        # Cari leave events yang match tanggal ini
+        day_leaves = []
+        for event in all_leave_events:
+            tanggal_list = event.get_tanggal_list()
+            if date_str in tanggal_list:
+                day_leaves.append(event)
+        
+        calendar_data.append({
+            'date': day,
+            'date_str': date_str,
+            'leave_events': day_leaves
+        })
+    
+    # Get month name
+    month_names = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+    month_name = month_names[current_month - 1]
+    
+    # Get karyawan list untuk datalist
+    karyawan_list = Karyawan.objects.filter(status='Aktif').order_by('nama_lengkap')
+    
+    context = {
+        'form': form,
+        'karyawan_list': karyawan_list,
+        'all_leave_events': all_leave_events,
+        'upcoming_events': upcoming_events,
+        'past_events': past_events,
+        'calendar_data': calendar_data,
+        'calendar_rows': [calendar_data[i:i+7] for i in range(0, len(calendar_data), 7)],
+        'current_month': current_month,
+        'current_year': current_year,
+        'month_name': month_name,
+    }
+    
+    return render(request, 'leave_event.html', context)
+
+
+@login_required(login_url='core:login')
+def leave_event_list(request):
+    """
+    Halaman daftar Leave Events
+    """
+    leave_events = LeaveEvent.objects.all().order_by('-created_at')
+    
+    context = {
+        'leave_events': leave_events,
+    }
+    
+    return render(request, 'leave_event_list.html', context)
+
+
+@login_required(login_url='core:login')
+def leave_event_detail(request, leave_id):
+    """
+    Halaman detail Leave Event
+    """
+    leave_event = get_object_or_404(LeaveEvent, id=leave_id)
+    
+    context = {
+        'leave_event': leave_event,
+    }
+    
+    return render(request, 'leave_event_detail.html', context)
+
+
+@login_required(login_url='core:login')
+def leave_event_delete(request, leave_id):
+    """
+    Delete Leave Event (juga delete dari Google Calendar)
+    """
+    leave_event = get_object_or_404(LeaveEvent, id=leave_id)
+    
+    try:
+        # Delete dari Google Calendar jika ada event_id
+        if leave_event.google_event_id:
+            from .google_calendar_service import get_google_calendar_service
+            cal_service = get_google_calendar_service()
+            cal_service.delete_event(leave_event.google_event_id)
+        
+        # Delete dari database
+        nama = leave_event.nama_orang
+        leave_event.delete()
+        
+        messages.success(request, f"✅ Sukses menghapus event '{nama}' dari database dan Google Calendar.")
+        
+    except Exception as e:
+        messages.error(request, f"❌ Error saat delete: {str(e)}")
+        print(f"Delete Error: {str(e)}")
+    
+    return redirect('core:leave_event_list')
+
+
+# ==============================================================================
+# TEMPORARY: VIEW UNTUK RUN MIGRATION (HELPER SAJA)
+# ==============================================================================
+def run_migration_helper(request):
+    """
+    Temporary view untuk apply pending migrations
+    HANYA untuk development/setup. HAPUS di production!
+    """
+    from django.core.management import call_command
+    from io import StringIO
+    
+    # Security: hanya jalan jika DEBUG=True atau dari localhost
+    if not (settings.DEBUG or request.META.get('REMOTE_ADDR') in ['127.0.0.1', 'localhost']):
+        return HttpResponse("Forbidden", status=403)
+    
+    try:
+        out = StringIO()
+        call_command('migrate', stdout=out)
+        
+        result = f"""
+        <h2>✅ Migration Success</h2>
+        <pre>{out.getvalue()}</pre>
+        <a href="/">Back to Dashboard</a>
+        """
+        return HttpResponse(result)
+    except Exception as e:
+        return HttpResponse(f"<h2>❌ Error: {str(e)}</h2><pre>{str(e)}</pre>", status=500)
+

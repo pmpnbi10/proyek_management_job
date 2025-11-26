@@ -30,15 +30,19 @@ def can_edit_job(job, user):
     # User adalah creator
     if job.pic == user:
         return True
-    
+
     # User adalah yang di-assign
     if job.assigned_to == user:
         return True
-    
-    # User adalah supervisor dari assigned_to (bukan dari pic!)
-    if job.assigned_to is not None:
-        subordinate_ids = user.get_all_subordinates()
-        if job.assigned_to.id in subordinate_ids:
-            return True
-    
+
+    subordinate_ids = user.get_all_subordinates()
+
+    # User adalah supervisor dari assigned_to
+    if job.assigned_to is not None and job.assigned_to.id in subordinate_ids:
+        return True
+
+    # User adalah supervisor dari PIC (supervisor boleh juga edit job created by their subordinate)
+    if job.pic is not None and job.pic.id in subordinate_ids:
+        return True
+
     return False

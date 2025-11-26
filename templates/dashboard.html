@@ -115,7 +115,7 @@
 <div class="card shadow-sm mb-2">
     <div class="card-header fs-5">
         <i class="bi bi-graph-up"></i>
-        Dasbor Progres Mesin (Bulan Ini)
+        Dasbor Progres Mesin ({% if current_month == 0 or current_year == 0 %}Semua Waktu{% else %}Bulan Ini{% endif %})
     </div>
     <div class="card-body">
         <div class="progress-mesin-wrapper">
@@ -153,6 +153,9 @@
             <div class="col-md-2">
                 <label for="month-filter" class="form-label">Bulan</label>
                 <select name="month" id="month-filter" class="form-select form-select-sm">
+                    <option value="0" {% if current_month == 0 %}selected{% endif %}>
+                        Semua
+                    </option>
                     {% for month in month_list %}
                     <option value="{{ month.id }}" {% if month.id == current_month %}selected{% endif %}>
                         {{ month.name }}
@@ -164,6 +167,9 @@
             <div class="col-md-1">
                 <label for="year-filter" class="form-label">Tahun</label>
                 <select name="year" id="year-filter" class="form-select form-select-sm">
+                    <option value="0" {% if current_year == 0 %}selected{% endif %}>
+                        Semua
+                    </option>
                     {% for year in year_list %}
                     <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>
                         {{ year }}
@@ -282,10 +288,10 @@
                     <ul class="pagination justify-content-end mb-0">
                         {% if daily_page_obj.has_previous %}
                         <li class="page-item">
-                            <a class="page-link" href="?daily_page=1&page_size={{ page_size }}&{{ filter_params }}">Awal</a>
+                            <a class="page-link" href="?daily_page=1&page_size={{ page_size }}&month={{ current_month }}&year={{ current_year }}&pic={{ selected_pic_id }}&line={{ selected_line_id }}&mesin={{ selected_mesin_id }}&sub_mesin={{ selected_sub_mesin_id }}&sort={{ sort_by }}&order={{ sort_order }}">Awal</a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?daily_page={{ daily_page_obj.previous_page_number }}&page_size={{ page_size }}&{{ filter_params }}">← Sebelumnya</a>
+                            <a class="page-link" href="?daily_page={{ daily_page_obj.previous_page_number }}&page_size={{ page_size }}&month={{ current_month }}&year={{ current_year }}&pic={{ selected_pic_id }}&line={{ selected_line_id }}&mesin={{ selected_mesin_id }}&sub_mesin={{ selected_sub_mesin_id }}&sort={{ sort_by }}&order={{ sort_order }}">← Sebelumnya</a>
                         </li>
                         {% else %}
                         <li class="page-item disabled">
@@ -302,10 +308,10 @@
 
                         {% if daily_page_obj.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="?daily_page={{ daily_page_obj.next_page_number }}&page_size={{ page_size }}&{{ filter_params }}">Selanjutnya →</a>
+                            <a class="page-link" href="?daily_page={{ daily_page_obj.next_page_number }}&page_size={{ page_size }}&month={{ current_month }}&year={{ current_year }}&pic={{ selected_pic_id }}&line={{ selected_line_id }}&mesin={{ selected_mesin_id }}&sub_mesin={{ selected_sub_mesin_id }}&sort={{ sort_by }}&order={{ sort_order }}">Selanjutnya →</a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?daily_page={{ daily_paginator.num_pages }}&page_size={{ page_size }}&{{ filter_params }}">Akhir</a>
+                            <a class="page-link" href="?daily_page={{ daily_paginator.num_pages }}&page_size={{ page_size }}&month={{ current_month }}&year={{ current_year }}&pic={{ selected_pic_id }}&line={{ selected_line_id }}&mesin={{ selected_mesin_id }}&sub_mesin={{ selected_sub_mesin_id }}&sort={{ sort_by }}&order={{ sort_order }}">Akhir</a>
                         </li>
                         {% else %}
                         <li class="page-item disabled">
@@ -372,10 +378,10 @@
                     <ul class="pagination justify-content-end mb-0">
                         {% if project_page_obj.has_previous %}
                         <li class="page-item">
-                            <a class="page-link" href="?project_page=1&page_size={{ page_size }}&{{ filter_params }}">Awal</a>
+                            <a class="page-link" href="?project_page=1&page_size={{ page_size }}&month={{ current_month }}&year={{ current_year }}&pic={{ selected_pic_id }}&line={{ selected_line_id }}&mesin={{ selected_mesin_id }}&sub_mesin={{ selected_sub_mesin_id }}&sort={{ sort_by }}&order={{ sort_order }}">Awal</a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?project_page={{ project_page_obj.previous_page_number }}&page_size={{ page_size }}&{{ filter_params }}">← Sebelumnya</a>
+                            <a class="page-link" href="?project_page={{ project_page_obj.previous_page_number }}&page_size={{ page_size }}&month={{ current_month }}&year={{ current_year }}&pic={{ selected_pic_id }}&line={{ selected_line_id }}&mesin={{ selected_mesin_id }}&sub_mesin={{ selected_sub_mesin_id }}&sort={{ sort_by }}&order={{ sort_order }}">← Sebelumnya</a>
                         </li>
                         {% else %}
                         <li class="page-item disabled">
@@ -392,10 +398,10 @@
 
                         {% if project_page_obj.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="?project_page={{ project_page_obj.next_page_number }}&page_size={{ page_size }}&{{ filter_params }}">Selanjutnya →</a>
+                            <a class="page-link" href="?project_page={{ project_page_obj.next_page_number }}&page_size={{ page_size }}&month={{ current_month }}&year={{ current_year }}&pic={{ selected_pic_id }}&line={{ selected_line_id }}&mesin={{ selected_mesin_id }}&sub_mesin={{ selected_sub_mesin_id }}&sort={{ sort_by }}&order={{ sort_order }}">Selanjutnya →</a>
                         </li>
                         <li class="page-item">
-                            <a class="page-link" href="?project_page={{ project_paginator.num_pages }}&page_size={{ page_size }}&{{ filter_params }}">Akhir</a>
+                            <a class="page-link" href="?project_page={{ project_paginator.num_pages }}&page_size={{ page_size }}&month={{ current_month }}&year={{ current_year }}&pic={{ selected_pic_id }}&line={{ selected_line_id }}&mesin={{ selected_mesin_id }}&sub_mesin={{ selected_sub_mesin_id }}&sort={{ sort_by }}&order={{ sort_order }}">Akhir</a>
                         </li>
                         {% else %}
                         <li class="page-item disabled">
@@ -520,6 +526,106 @@
                 });
             }
         });
+
+        // === GALLERY LAMPIRAN MODAL LOGIC ===
+        var currentJobAttachments = [];
+        var currentAttachmentIndex = 0;
+
+        window.loadAttachmentGallery = function(jobId, startIndex) {
+            // Fetch attachments untuk job ini via AJAX
+            fetch(`/api/job-attachments/${jobId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    currentJobAttachments = data.attachments;
+                    currentAttachmentIndex = startIndex;
+                    displayAttachment(currentAttachmentIndex);
+                })
+                .catch(error => {
+                    console.error('Error loading attachments:', error);
+                    alert('Gagal memuat lampiran');
+                });
+        };
+
+        window.displayAttachment = function(index) {
+            if (!currentJobAttachments || currentJobAttachments.length === 0) return;
+
+            const att = currentJobAttachments[index];
+            const previewContainer = document.getElementById('attachmentPreview');
+            const infoContainer = document.getElementById('attachmentInfo');
+            
+            // Bersihkan container
+            previewContainer.innerHTML = '';
+            infoContainer.innerHTML = '';
+
+            // Tentukan tipe file
+            const fileExt = att.file_name.split('.').pop().toLowerCase();
+            const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt);
+            const isVideo = ['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(fileExt);
+            const isDocument = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'].includes(fileExt);
+
+            // Render preview atau download button
+            if (isImage) {
+                previewContainer.innerHTML = `
+                    <img src="${att.file_url}" alt="${att.deskripsi}" style="max-width: 100%; max-height: 70vh; object-fit: contain;">
+                `;
+            } else if (isVideo) {
+                previewContainer.innerHTML = `
+                    <video controls style="max-width: 100%; max-height: 70vh;">
+                        <source src="${att.file_url}" type="video/mp4">
+                        Browser Anda tidak support video.
+                    </video>
+                `;
+            } else if (isDocument) {
+                previewContainer.innerHTML = `
+                    <div class="text-center p-5">
+                        <i class="bi bi-file-earmark-pdf" style="font-size: 4rem; color: #dc3545;"></i>
+                        <p class="mt-3"><strong>${att.file_name}</strong></p>
+                        <a href="${att.file_url}" download class="btn btn-primary">
+                            <i class="bi bi-download"></i> Download
+                        </a>
+                    </div>
+                `;
+            } else {
+                previewContainer.innerHTML = `
+                    <div class="text-center p-5">
+                        <i class="bi bi-file-earmark" style="font-size: 4rem; color: #6c757d;"></i>
+                        <p class="mt-3"><strong>${att.file_name}</strong></p>
+                        <a href="${att.file_url}" download class="btn btn-primary">
+                            <i class="bi bi-download"></i> Download
+                        </a>
+                    </div>
+                `;
+            }
+
+            // Info & Navigation
+            infoContainer.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${att.file_name}</strong><br>
+                        <small class="text-muted">${att.deskripsi || 'Tanpa deskripsi'}</small>
+                    </div>
+                    <div class="text-muted small">${index + 1} / ${currentJobAttachments.length}</div>
+                </div>
+            `;
+
+            // Update button state
+            document.getElementById('attachmentPrevBtn').disabled = index === 0;
+            document.getElementById('attachmentNextBtn').disabled = index === currentJobAttachments.length - 1;
+        };
+
+        window.prevAttachment = function() {
+            if (currentAttachmentIndex > 0) {
+                currentAttachmentIndex--;
+                displayAttachment(currentAttachmentIndex);
+            }
+        };
+
+        window.nextAttachment = function() {
+            if (currentAttachmentIndex < currentJobAttachments.length - 1) {
+                currentAttachmentIndex++;
+                displayAttachment(currentAttachmentIndex);
+            }
+        };
     });
 </script>
 {% endblock %}

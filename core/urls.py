@@ -65,6 +65,9 @@ urlpatterns = [
     path('ajax/load-children/', views.load_children, name='load_children'),
     path('ajax/load-personil/', views.load_personil_by_assigned_to, name='load_personil'),
     
+    # URL API ATTACHMENT GALLERY (BARU)
+    path('api/job-attachments/<int:job_id>/', views.api_job_attachments, name='api_job_attachments'),
+    
     # URL EXPORT KE GOOGLE APPS SCRIPT
     path('api/export-jobs/', views.export_jobs_to_gas, name='export_jobs_to_gas'),
     
@@ -75,4 +78,13 @@ urlpatterns = [
     # URL EXPORT EXCEL (BARU)
     path('export/daily-jobs-excel/', views.export_daily_jobs_excel, name='export_daily_jobs_excel'),
     path('export/project-jobs-excel/', views.export_project_jobs_excel, name='export_project_jobs_excel'),
+    
+    # URL LEAVE EVENT (IJIN/CUTI) - FITUR BARU
+    path('leave/', views.leave_event_view, name='leave_event'),
+    path('leave/list/', views.leave_event_list, name='leave_event_list'),
+    path('leave/<int:leave_id>/', views.leave_event_detail, name='leave_event_detail'),
+    path('leave/<int:leave_id>/delete/', views.leave_event_delete, name='leave_event_delete'),
+    
+    # TEMPORARY: Helper untuk run migration
+    path('_run_migration/', views.run_migration_helper, name='run_migration_helper'),
 ]

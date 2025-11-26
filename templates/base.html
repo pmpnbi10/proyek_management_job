@@ -73,6 +73,14 @@
                                 <i class="bi bi-file-pdf"></i> Export Jobs
                             </a>
                         </li>
+
+                        <!-- MENU "IJIN/CUTI" -->
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'leave_event' in request.resolver_match.url_name %}active{% endif %}" 
+                               href="{% url 'core:leave_event' %}">
+                                <i class="bi bi-calendar-day"></i> Ijin/Cuti
+                            </a>
+                        </li>
                         
                         {% if user.is_staff or user.is_superuser %}
                         <li class="nav-item">
@@ -135,10 +143,41 @@
     </main>
 
     <!-- Link ke Bootstrap JS (Wajib untuk dropdown, dll) -->
+    <!-- jQuery (required untuk Select2) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" xintegrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     
     <!-- JS FLATPICKR -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    
+    <!-- MODAL UNTUK GALLERY LAMPIRAN -->
+    <div class="modal fade" id="attachmentModal" tabindex="-1" aria-labelledby="attachmentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="attachmentModalLabel">Lampiran</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Preview Gambar/Video/Dokumen -->
+                    <div id="attachmentPreview" class="text-center mb-3" style="min-height: 400px; display: flex; align-items: center; justify-content: center;">
+                        <p class="text-muted">Memuat...</p>
+                    </div>
+                    <!-- Info & Navigation -->
+                    <div id="attachmentInfo" class="mb-3 pb-3 border-bottom"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="attachmentPrevBtn" onclick="prevAttachment()">
+                        <i class="bi bi-chevron-left"></i> Sebelumnya
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="attachmentNextBtn" onclick="nextAttachment()">
+                        Selanjutnya <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
     
     {% block extra_js %}
     <!-- Blok untuk JS tambahan per halaman -->

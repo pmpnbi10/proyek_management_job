@@ -19,7 +19,12 @@ SECRET_KEY = 'django-insecure-@d)c*7x8h2)d5$)%2j5c_7q1o(u-7-3q=6s#g4y@z+@c7q+c%x
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '192.168.1.*',  # Ganti dengan subnet network Anda
+    '*'  # Untuk development saja, jangan di production
+]
 
 
 # Application definition
@@ -81,7 +86,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'manajemen_pekerjaan_db', # Nama DB yg Anda buat di pgAdmin
         'USER': 'manajemen_app_user',      # User owner DB Anda
-        'PASSWORD': 'password_rahasia_app',# GANTI DENGAN PASSWORD ANDA
+        'PASSWORD': 'AppsPassword123!',# GANTI DENGAN PASSWORD ANDA
         'HOST': 'localhost',               # Biarkan 'localhost'
         'PORT': '5432',                    # Port default PostgreSQL
     }
@@ -143,3 +148,10 @@ LOGIN_REDIRECT_URL = 'core:dashboard'
 
 # Ke mana user dilempar JIKA MENCOBA MENGAKSES HALAMAN YG BUTUH LOGIN
 LOGIN_URL = 'core:login'
+
+
+# ==============================================================================
+# PENGATURAN GOOGLE CALENDAR API
+# ==============================================================================
+GOOGLE_CALENDAR_CREDENTIALS_FILE = os.path.join(BASE_DIR, 'config/credentials/google-calendar-sa.json')
+GOOGLE_CALENDAR_ID = 'ges3ra8851qk05jqlsfgjct3h4@group.calendar.google.com'  # Calendar ID Anda
