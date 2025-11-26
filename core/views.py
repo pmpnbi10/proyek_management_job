@@ -955,24 +955,28 @@ def export_project_jobs_excel(request):
     
     # === 1. LOGIKA FILTER (BULAN & TAHUN) ===
     now = datetime.datetime.now()
-    selected_month = request.GET.get('month', '')
-    selected_year = request.GET.get('year', '')
+    selected_month = request.GET.get('month', '').strip()
+    selected_year = request.GET.get('year', '').strip()
     
-    # Jika user pilih "Semua", gunakan None untuk filter tanpa batasan
-    if selected_month == '' or selected_month == 'Semua':
+    # Jika user pilih "Semua" atau kosong, gunakan None untuk filter tanpa batasan
+    if not selected_month or selected_month == 'Semua':
         current_month = None
     else:
         try:
             current_month = int(selected_month)
-        except ValueError:
+            if current_month < 1 or current_month > 12:
+                current_month = now.month
+        except (ValueError, TypeError):
             current_month = now.month
     
-    if selected_year == '' or selected_year == 'Semua':
+    if not selected_year or selected_year == 'Semua':
         current_year = None
     else:
         try:
             current_year = int(selected_year)
-        except ValueError:
+            if current_year < 1900 or current_year > 2100:
+                current_year = now.year
+        except (ValueError, TypeError):
             current_year = now.year
     
     # === 2. LOGIKA FILTER PIC ===
@@ -1185,24 +1189,28 @@ def export_project_jobs_pdf(request):
     
     # === 1. LOGIKA FILTER (BULAN & TAHUN) ===
     now = datetime.datetime.now()
-    selected_month = request.GET.get('month', '')
-    selected_year = request.GET.get('year', '')
+    selected_month = request.GET.get('month', '').strip()
+    selected_year = request.GET.get('year', '').strip()
     
-    # Jika user pilih "Semua", gunakan None untuk filter tanpa batasan
-    if selected_month == '' or selected_month == 'Semua':
+    # Jika user pilih "Semua" atau kosong, gunakan None untuk filter tanpa batasan
+    if not selected_month or selected_month == 'Semua':
         current_month = None
     else:
         try:
             current_month = int(selected_month)
-        except ValueError:
+            if current_month < 1 or current_month > 12:
+                current_month = now.month
+        except (ValueError, TypeError):
             current_month = now.month
     
-    if selected_year == '' or selected_year == 'Semua':
+    if not selected_year or selected_year == 'Semua':
         current_year = None
     else:
         try:
             current_year = int(selected_year)
-        except ValueError:
+            if current_year < 1900 or current_year > 2100:
+                current_year = now.year
+        except (ValueError, TypeError):
             current_year = now.year
     
     # === 2. LOGIKA FILTER PIC ===
