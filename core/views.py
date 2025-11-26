@@ -953,31 +953,31 @@ def export_daily_jobs_excel(request):
 def export_project_jobs_excel(request):
     user = request.user
     
-    # === 1. LOGIKA FILTER (BULAN & TAHUN) ===
+    # === 1. LOGIKA FILTER (BULAN & TAHUN) - SAMA SEPERTI DASHBOARD ===
     now = datetime.datetime.now()
-    selected_month = request.GET.get('month', '').strip()
-    selected_year = request.GET.get('year', '').strip()
-    
-    # Jika user pilih "Semua" atau kosong, gunakan None untuk filter tanpa batasan
-    if not selected_month or selected_month == 'Semua':
-        current_month = None
-    else:
-        try:
-            current_month = int(selected_month)
-            if current_month < 1 or current_month > 12:
-                current_month = now.month
-        except (ValueError, TypeError):
-            current_month = now.month
-    
-    if not selected_year or selected_year == 'Semua':
-        current_year = None
-    else:
-        try:
-            current_year = int(selected_year)
-            if current_year < 1900 or current_year > 2100:
+    try:
+        current_year_param = request.GET.get('year', '')
+        current_month_param = request.GET.get('month', '')
+        
+        # Jika kosong atau '0', gunakan nilai default
+        if current_year_param and current_year_param != '0':
+            current_year = int(current_year_param)
+        else:
+            current_year = 0  # Artinya "Semua tahun"
+        
+        if current_month_param and current_month_param != '0':
+            current_month = int(current_month_param)
+            # Jika user pilih bulan tapi tidak pilih tahun, default ke tahun sekarang
+            if current_year == 0:
                 current_year = now.year
-        except (ValueError, TypeError):
-            current_year = now.year
+        else:
+            current_month = 0  # Artinya "Semua bulan"
+    except ValueError:
+        current_year = 0
+        current_month = 0
+    
+    # Flag untuk menentukan apakah filter aktif atau "Semua"
+    filter_all_dates = (current_month == 0 and current_year == 0)
     
     # === 2. LOGIKA FILTER PIC ===
     subordinate_ids = user.get_all_subordinates()
@@ -1011,16 +1011,10 @@ def export_project_jobs_excel(request):
     elif selected_line_id:
         all_jobs_team_base = all_jobs_team_base.filter(aset__parent__parent_id=selected_line_id)
     
-    # Filter berdasarkan bulan dan tahun yang dipilih (jika ada)
-    if current_month is not None and current_year is not None:
-        first_day = datetime.date(current_year, current_month, 1)
-        last_day = datetime.date(current_year, current_month, calendar.monthrange(current_year, current_month)[1])
-        
-        # Ambil project jobs yang punya jadwal di bulan/tahun yang dipilih
-        project_jobs = all_jobs_team_base.filter(
-            tanggal_pelaksanaan__tanggal__gte=first_day,
-            tanggal_pelaksanaan__tanggal__lte=last_day
-        ).select_related(
+    # Filter berdasarkan bulan dan tahun (sama seperti dashboard)
+    if filter_all_dates:
+        # Ambil semua project jobs tanpa filter tanggal
+        project_jobs = all_jobs_team_base.select_related(
             'pic', 
             'project',
             'aset',
@@ -1028,8 +1022,14 @@ def export_project_jobs_excel(request):
             'aset__parent__parent'
         ).prefetch_related('tanggal_pelaksanaan').order_by('project__nama_project', 'nama_pekerjaan').distinct()
     else:
-        # Jika tidak ada filter bulan/tahun, ambil semua project jobs
-        project_jobs = all_jobs_team_base.select_related(
+        # Build filter dynamically based on what user selected
+        date_filter = Q()
+        if current_month != 0:
+            date_filter &= Q(tanggal_pelaksanaan__tanggal__month=current_month)
+        if current_year != 0:
+            date_filter &= Q(tanggal_pelaksanaan__tanggal__year=current_year)
+        
+        project_jobs = all_jobs_team_base.filter(date_filter).select_related(
             'pic', 
             'project',
             'aset',
@@ -1116,14 +1116,17 @@ def export_project_jobs_excel(request):
             sub = job.aset.nama if job.aset else "-"
             
             # Ambil jadwal (dengan filter bulan/tahun jika ada)
-            if current_month is not None and current_year is not None:
-                jadwal_dates = job.tanggal_pelaksanaan.filter(
-                    tanggal__gte=first_day,
-                    tanggal__lte=last_day
-                ).values_list('tanggal', flat=True).order_by('tanggal')
-            else:
-                # Jika tidak ada filter bulan/tahun, ambil semua jadwal
+            if filter_all_dates:
+                # Tampilkan semua jadwal
                 jadwal_dates = job.tanggal_pelaksanaan.all().values_list('tanggal', flat=True).order_by('tanggal')
+            else:
+                # Ambil jadwal sesuai filter bulan/tahun
+                date_filter_jadwal = Q()
+                if current_month != 0:
+                    date_filter_jadwal &= Q(tanggal__month=current_month)
+                if current_year != 0:
+                    date_filter_jadwal &= Q(tanggal__year=current_year)
+                jadwal_dates = job.tanggal_pelaksanaan.filter(date_filter_jadwal).values_list('tanggal', flat=True).order_by('tanggal')
             
             jadwal_str = ", ".join([str(d.strftime("%d/%m")) for d in jadwal_dates]) if jadwal_dates else "-"
             
@@ -1187,31 +1190,31 @@ def export_project_jobs_pdf(request):
     """
     user = request.user
     
-    # === 1. LOGIKA FILTER (BULAN & TAHUN) ===
+    # === 1. LOGIKA FILTER (BULAN & TAHUN) - SAMA SEPERTI DASHBOARD ===
     now = datetime.datetime.now()
-    selected_month = request.GET.get('month', '').strip()
-    selected_year = request.GET.get('year', '').strip()
-    
-    # Jika user pilih "Semua" atau kosong, gunakan None untuk filter tanpa batasan
-    if not selected_month or selected_month == 'Semua':
-        current_month = None
-    else:
-        try:
-            current_month = int(selected_month)
-            if current_month < 1 or current_month > 12:
-                current_month = now.month
-        except (ValueError, TypeError):
-            current_month = now.month
-    
-    if not selected_year or selected_year == 'Semua':
-        current_year = None
-    else:
-        try:
-            current_year = int(selected_year)
-            if current_year < 1900 or current_year > 2100:
+    try:
+        current_year_param = request.GET.get('year', '')
+        current_month_param = request.GET.get('month', '')
+        
+        # Jika kosong atau '0', gunakan nilai default
+        if current_year_param and current_year_param != '0':
+            current_year = int(current_year_param)
+        else:
+            current_year = 0  # Artinya "Semua tahun"
+        
+        if current_month_param and current_month_param != '0':
+            current_month = int(current_month_param)
+            # Jika user pilih bulan tapi tidak pilih tahun, default ke tahun sekarang
+            if current_year == 0:
                 current_year = now.year
-        except (ValueError, TypeError):
-            current_year = now.year
+        else:
+            current_month = 0  # Artinya "Semua bulan"
+    except ValueError:
+        current_year = 0
+        current_month = 0
+    
+    # Flag untuk menentukan apakah filter aktif atau "Semua"
+    filter_all_dates = (current_month == 0 and current_year == 0)
     
     # === 2. LOGIKA FILTER PIC ===
     subordinate_ids = user.get_all_subordinates()
@@ -1245,15 +1248,11 @@ def export_project_jobs_pdf(request):
     elif selected_line_id:
         all_jobs_team_base = all_jobs_team_base.filter(aset__parent__parent_id=selected_line_id)
     
-    # Filter untuk Project Jobs dengan bulan/tahun yang dipilih (jika ada)
-    if current_month is not None and current_year is not None:
-        first_day = datetime.date(current_year, current_month, 1)
-        last_day = datetime.date(current_year, current_month, calendar.monthrange(current_year, current_month)[1])
-        
+    # Filter untuk Project Jobs (sama seperti dashboard)
+    if filter_all_dates:
+        # Ambil semua project jobs tanpa filter tanggal
         project_jobs = all_jobs_team_base.filter(
-            tipe_job='Project',
-            tanggal_pelaksanaan__tanggal__gte=first_day,
-            tanggal_pelaksanaan__tanggal__lte=last_day
+            tipe_job='Project'
         ).select_related(
             'pic', 
             'project',
@@ -1264,10 +1263,16 @@ def export_project_jobs_pdf(request):
             'attachments'
         ).order_by('project__nama_project', 'nama_pekerjaan').distinct()
     else:
-        # Jika tidak ada filter bulan/tahun, ambil semua project jobs
+        # Build filter dynamically based on what user selected
+        date_filter = Q()
+        if current_month != 0:
+            date_filter &= Q(tanggal_pelaksanaan__tanggal__month=current_month)
+        if current_year != 0:
+            date_filter &= Q(tanggal_pelaksanaan__tanggal__year=current_year)
+        
         project_jobs = all_jobs_team_base.filter(
             tipe_job='Project'
-        ).select_related(
+        ).filter(date_filter).select_related(
             'pic', 
             'project',
             'aset__parent__parent' 
