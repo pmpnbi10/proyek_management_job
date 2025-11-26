@@ -962,18 +962,53 @@ def export_project_jobs_excel(request):
         current_year = now.year
         current_month = now.month
     
-    # === 2. AMBIL DATA PROJECTS SESUAI FILTER ===
-    first_day = datetime.date(current_year, current_month, 1)
-    last_day = datetime.date(current_year, current_month, calendar.monthrange(current_year, current_month)[1])
+    # === 2. LOGIKA FILTER PIC ===
+    subordinate_ids = user.get_all_subordinates()
+    selected_pic_id = request.GET.get('pic', '')
     
-    projects = Project.objects.all().order_by('nama_project')
+    if selected_pic_id == 'my_jobs':
+        team_query = Q(pic=user)
+    elif selected_pic_id:
+        try:
+            selected_user = get_object_or_404(CustomUser, id=int(selected_pic_id))
+            selected_user_sub_ids = selected_user.get_all_subordinates()
+            team_ids = selected_user_sub_ids + [selected_user.id]
+            team_query = Q(pic_id__in=team_ids)
+        except (ValueError, CustomUser.DoesNotExist):
+            team_query = Q(pic=user) | Q(pic_id__in=subordinate_ids)
+    else:
+        team_query = Q(pic=user) | Q(pic_id__in=subordinate_ids)
     
-    # === 3. BUAT WORKBOOK EXCEL ===
+    # === 3. LOGIKA FILTER ASET ===
+    selected_line_id = request.GET.get('line', '')
+    selected_mesin_id = request.GET.get('mesin', '')
+    selected_sub_mesin_id = request.GET.get('sub_mesin', '')
+    
+    # === 4. LOGIKA DATA TABEL ===
+    all_jobs_team_base = Job.objects.filter(team_query, tipe_job='Project').distinct()
+    
+    if selected_sub_mesin_id:
+        all_jobs_team_base = all_jobs_team_base.filter(aset_id=selected_sub_mesin_id)
+    elif selected_mesin_id:
+        all_jobs_team_base = all_jobs_team_base.filter(aset__parent_id=selected_mesin_id)
+    elif selected_line_id:
+        all_jobs_team_base = all_jobs_team_base.filter(aset__parent__parent_id=selected_line_id)
+    
+    # Ambil semua project jobs (tanpa batasan tanggal)
+    project_jobs = all_jobs_team_base.select_related(
+        'pic', 
+        'project',
+        'aset',
+        'aset__parent',
+        'aset__parent__parent'
+    ).prefetch_related('tanggal_pelaksanaan').order_by('project__nama_project', 'nama_pekerjaan')
+    
+    # === 5. BUAT WORKBOOK EXCEL ===
     wb = Workbook()
     ws = wb.active
     ws.title = "Project Jobs"
     
-    # === 4. DEFINISIKAN STYLING ===
+    # === 6. DEFINISIKAN STYLING ===
     header_fill = PatternFill(start_color="2C8C4B", end_color="2C8C4B", fill_type="solid")
     header_font = Font(bold=True, color="FFFFFF", size=11)
     header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -988,8 +1023,8 @@ def export_project_jobs_excel(request):
         bottom=Side(style='thin')
     )
     
-    # === 5. BUAT HEADER ROW ===
-    headers = ["No", "Project", "Nama Pekerjaan", "PIC", "Line", "Mesin", "Sub", "Fokus", "Prioritas", "Jadwal", "Progress (%)"]
+    # === 7. BUAT HEADER ROW ===
+    headers = ["No", "Project", "Nama Pekerjaan", "PIC", "Line", "Mesin", "Sub", "Fokus", "Prioritas", "Progress (%)"]
     ws.append(headers)
     
     # Style header
@@ -999,83 +1034,77 @@ def export_project_jobs_excel(request):
         cell.alignment = header_alignment
         cell.border = thin_border
     
-    # === 6. ISI DATA PER PROJECT ===
+    # === 8. ISI DATA PER PROJECT ===
     row_num = 1
     no = 0
     
-    # Ambil job_ids yang punya tanggal dalam range DAN PUNYA PROJECT
-    job_ids_in_range = JobDate.objects.filter(
-        tanggal__gte=first_day,
-        tanggal__lte=last_day,
-        job__project__isnull=False  # Hanya job yang punya project
-    ).values_list('job_id', flat=True).distinct()
+    # Group jobs by project
+    project_dict = {}
+    for job in project_jobs:
+        project_name = job.project.nama_project if job.project else "Tanpa Project"
+        if project_name not in project_dict:
+            project_dict[project_name] = {
+                'project': job.project,
+                'jobs': []
+            }
+        project_dict[project_name]['jobs'].append(job)
     
-    for project in projects:
-        # Ambil jobs untuk project ini dengan filter bulan/tahun
-        jobs = project.jobs.filter(
-            id__in=job_ids_in_range
-        ).order_by('nama_pekerjaan')
+    for project_name, data in project_dict.items():
+        project = data['project']
+        jobs = data['jobs']
         
-        if jobs.exists():
-            # Header project
+        # Buat project header
+        if project:
             row_num += 1
             ws.insert_rows(row_num)
             ws[row_num][0].value = ""
             ws[row_num][1].value = f"PROJECT: {project.nama_project}"
             
             # Merge cells untuk project name
-            ws.merge_cells(f'B{row_num}:K{row_num}')
+            ws.merge_cells(f'B{row_num}:J{row_num}')
             
             # Style project header
-            for col in range(1, 12):
+            for col in range(1, 11):
                 cell = ws.cell(row=row_num, column=col)
                 cell.fill = project_fill
                 cell.font = project_font
                 cell.border = thin_border
                 cell.alignment = Alignment(horizontal="left", vertical="center")
+        
+        # Isi job data untuk project ini
+        for job in jobs:
+            no += 1
+            row_num += 1
             
-            # Isi job data untuk project ini
-            for job in jobs:
-                no += 1
-                row_num += 1
-                
-                # Ambil line, mesin, sub dari aset
-                line = job.aset.parent.parent.nama if job.aset.parent.parent else "-"
-                mesin = job.aset.parent.nama if job.aset.parent else "-"
-                sub = job.aset.nama if job.aset else "-"
-                
-                # Ambil jadwal
-                jadwal_dates = job.tanggal_pelaksanaan.filter(
-                    tanggal__gte=first_day,
-                    tanggal__lte=last_day
-                ).values_list('tanggal', flat=True)
-                jadwal_str = ", ".join([str(d.strftime("%d/%m")) for d in jadwal_dates]) if jadwal_dates else "-"
-                
-                # Ambil progress
-                progress = job.get_progress_percent()
-                
-                row = [
-                    no,
-                    "",
-                    job.nama_pekerjaan,
-                    job.pic.username if job.pic else "-",
-                    line,
-                    mesin,
-                    sub,
-                    job.get_fokus_display(),
-                    job.get_prioritas_display(),
-                    jadwal_str,
-                    progress
-                ]
-                
-                ws.append(row)
-                
-                # Style data row
-                for cell in ws[row_num]:
-                    cell.border = thin_border
-                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            # Ambil line, mesin, sub dari aset
+            line = job.aset.parent.parent.nama if job.aset and job.aset.parent and job.aset.parent.parent else "-"
+            mesin = job.aset.parent.nama if job.aset and job.aset.parent else "-"
+            sub = job.aset.nama if job.aset else "-"
+            
+            # Ambil progress
+            progress = job.get_progress_percent()
+            
+            row = [
+                no,
+                "",
+                job.nama_pekerjaan,
+                job.pic.username if job.pic else "-",
+                line,
+                mesin,
+                sub,
+                job.get_fokus_display(),
+                job.get_prioritas_display(),
+                progress
+            ]
+            
+            ws.append(row)
+            
+            # Style data row
+            for cell in ws[row_num]:
+                cell.border = thin_border
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
     
-    # === 7. ATUR LEBAR KOLOM ===
+    # === 9. ATUR LEBAR KOLOM ===
     ws.column_dimensions['A'].width = 5
     ws.column_dimensions['B'].width = 20
     ws.column_dimensions['C'].width = 25
@@ -1085,8 +1114,7 @@ def export_project_jobs_excel(request):
     ws.column_dimensions['G'].width = 15
     ws.column_dimensions['H'].width = 12
     ws.column_dimensions['I'].width = 12
-    ws.column_dimensions['J'].width = 20
-    ws.column_dimensions['K'].width = 12
+    ws.column_dimensions['J'].width = 12
     
     # === 8. GENERATE FILENAME ===
     month_name = get_month_name_id(current_month)
@@ -1152,11 +1180,9 @@ def export_project_jobs_pdf(request):
     elif selected_line_id:
         all_jobs_team_base = all_jobs_team_base.filter(aset__parent__parent_id=selected_line_id)
     
-    # Filter untuk Project Jobs di bulan/tahun terpilih
+    # Filter untuk Project Jobs (semua, tanpa batasan tanggal)
     project_jobs = all_jobs_team_base.filter(
-        tipe_job='Project',
-        tanggal_pelaksanaan__tanggal__month=current_month,
-        tanggal_pelaksanaan__tanggal__year=current_year
+        tipe_job='Project'
     ).select_related(
         'pic', 
         'project',
@@ -1165,7 +1191,7 @@ def export_project_jobs_pdf(request):
         'personil_ditugaskan', 
         'tanggal_pelaksanaan',
         'attachments'
-    ).distinct()
+    ).order_by('project__nama_project', 'nama_pekerjaan').distinct()
 
     # === 5. GRUP JOBS BERDASARKAN PROJECT ===
     project_dict = {}
